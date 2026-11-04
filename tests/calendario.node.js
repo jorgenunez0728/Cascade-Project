@@ -466,5 +466,34 @@ t('una semana nunca pasa de TP_WEEK_MAX_TESTS', () => {
     S.vehiclesPerSlot = 1; S.capacity = 8;
 });
 
+// ── [3.32.0] Fin de semana angosto e imagen del mes ──
+t('[3.32.0] fin de semana usado: solo cuenta si cae en sábado o domingo del mes', () => {
+    const rng = { from: '2026-11-01', to: '2026-11-30' };
+    eq(sandbox.tpCalendarWeekendUsed(rng, { '2026-11-10': [1] }, {}), false, 'un martes no:');
+    eq(sandbox.tpCalendarWeekendUsed(rng, {}, { '2026-11-14': [1] }), true, 'un sábado planeado sí:');
+    eq(sandbox.tpCalendarWeekendUsed(rng, { '2026-11-01': [1] }, {}), true, 'un domingo con prueba sí:');
+    eq(sandbox.tpCalendarWeekendUsed(rng, { '2026-11-15': [] }, {}), false, 'un día vacío no:');
+    eq(sandbox.tpCalendarWeekendUsed(rng, { '2026-10-31': [1] }, {}), false, 'fuera del mes no:');
+});
+t('[3.32.0] tpCalWrap parte por palabras y corta una palabra que no cabe', () => {
+    const m = x => x.length * 10;   // 10 px por letra
+    eq(sandbox.tpCalWrap('CL4 1.6 GAMMA-II LOW POWER', 100, m).join('|'), 'CL4 1.6|GAMMA-II|LOW POWER');
+    eq(sandbox.tpCalWrap('ABCDEFGHIJKL', 50, m).join('|'), 'ABCDE|FGHIJ|KL');
+    eq(sandbox.tpCalWrap('', 50, m).join('|'), '');
+});
+t('[3.32.0] la imagen: fin de semana angosto, filas a la medida del día más lleno', () => {
+    const model = { rng: { from: '2026-11-01', to: '2026-11-30' }, slimWeekend: true,
+                    days: { '2026-11-10': [{ kind: 'plan', text: 'A B C D E F G H' }, { kind: 'done', text: 'X' }] } };
+    const L = sandbox.tpCalendarImageLayout(model, x => x.length * 10);
+    eq(L.cols.length, 7);
+    eq(L.cols[5].w < L.cols[0].w * 0.5, true, 'sábado angosto:');
+    eq(L.weeks.length, 6, 'noviembre 2026 toca 6 semanas:');
+    const wk = L.weeks.find(w => w.cells.some(c => c.key === '2026-11-10'));
+    const cell = wk.cells.find(c => c.key === '2026-11-10');
+    eq(cell.pills.length, 2);
+    eq(wk.h >= L.weeks[1].h, true, 'la semana con pruebas es al menos tan alta como una vacía:');
+    eq(L.H > L.weeks[L.weeks.length - 1].y, true);
+});
+
 console.log(`calendario: ${pass} ok, ${fail} fallas`);
 if (fail) process.exit(1);

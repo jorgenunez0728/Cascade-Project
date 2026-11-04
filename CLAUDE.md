@@ -4341,3 +4341,14 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
   va en `tpPickerHay`. Un campo de texto junto a un bloque que se repinta con `innerHTML` va FUERA
   de ese bloque (`#tp-pick-q`), o pierde el foco en cada tecla.
 
+## 3.32.0 — El calendario como imagen (`js/testplan.js`)
+
+- **La imagen del mes se DIBUJA con Canvas desde los datos** (`tpCalendarTests` +
+  `tpCalendarPlanned`), nunca se fotografía la pantalla: html2canvas viene de un CDN (bloqueado en
+  el laboratorio) y la foto dependería del ancho del equipo. `tpCalendarImageLayout(model,
+  measure)` es PURA (se prueba con un `measure` falso); el canvas solo pinta lo que ella acomoda.
+  Toda exportación nueva de una vista como imagen sigue este patrón.
+- `tpCalendarWeekendUsed` (PURA) decide si sábado y domingo se angostan; la pantalla y la imagen
+  usan la misma regla. Las pastillas del calendario se parten en renglones (`white-space: normal`):
+  no volver a `nowrap` + `ellipsis`, que cortaba el nombre de la familia.
+

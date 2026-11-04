@@ -6869,8 +6869,9 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .tp-cal-cell--today { border-color: var(--info-fill); box-shadow: inset 0 0 0 1px var(--info-fill); }
 .tp-cal-num { display: flex; justify-content: space-between; align-items: center; font-size: var(--fs-xs); font-weight: 700; }
 .tp-cal-count { background: var(--ok-fill); color: #fff; border-radius: var(--radius-xl); padding: 0 var(--space-xs); font-size: var(--fs-2xs, 12px); }
+/* [3.32.0] El nombre de la familia se parte en renglones en vez de cortarse. */
 .tp-cal-pill { display: block; font-size: var(--fs-2xs, 12px); line-height: 1.3; padding: 0 var(--space-xs); border-radius: var(--radius-sm);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    white-space: normal; overflow-wrap: anywhere; }
 .tp-cal-pill--done { background: var(--ok-bg); color: var(--ok-text); }
 .tp-cal-pill--plan { background: var(--warn-bg); color: var(--warn-text); }
 .tp-cal-pill--prop { background: var(--surface-alt); color: var(--muted); border: 1px dashed var(--border); }
@@ -6909,6 +6910,8 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 
 /* ── [2.33.0] Calendario como vista de planeación: una fila por semana con su ▸ ── */
 .tp-cal-grid--weeks { grid-template-columns: 36px repeat(7, minmax(0, 1fr)); }
+/* [3.32.0] Fin de semana sin nada en el mes: angosto, el ancho se va a los días hábiles. */
+.tp-cal-grid--weeks.tp-cal-grid--slimwe { grid-template-columns: 36px repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, 0.35fr)); }
 .tp-cal-dow--wk { padding: 0; }
 .tp-cal-wk { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2xs);
     min-height: 72px; font: inherit; cursor: pointer; color: var(--info-text); background: var(--surface);
@@ -6923,6 +6926,7 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .tp-week-del { color: var(--danger-text); }
 @media (max-width: 640px) {
     .tp-cal-grid--weeks { grid-template-columns: 28px repeat(7, minmax(0, 1fr)); }
+    .tp-cal-grid--weeks.tp-cal-grid--slimwe { grid-template-columns: 28px repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, 0.5fr)); }
     .tp-cal-wk { min-height: 52px; }
 }
 
@@ -10583,10 +10587,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202611042244';
+var APP_BUILD = '202611042307';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '4d5ef50b56cee6f6505da1d3bdd092e583c8f038';
+var APP_COMMIT = '4706090de6e87b00115eaa9097653a0884740180';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10594,7 +10598,7 @@ var APP_COMMIT = '4d5ef50b56cee6f6505da1d3bdd092e583c8f038';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.31.0';
+var APP_VERSION = '3.32.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10602,6 +10606,10 @@ var APP_VERSION = '3.31.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.32.0', date: '4 nov 2026', title: 'Calendario: nombres completos e imagen del mes',
+      bullets: ['Plan → Calendario: los nombres de familia ya no se cortan; si no caben se parten en dos renglones. Se ven hasta 6 pruebas por día (antes 3).',
+                'Si el mes no tiene nada en sábado ni domingo, esas dos columnas se angostan y el ancho se lo llevan los días hábiles. Si algún fin de semana tiene una prueba, vuelven a su tamaño.',
+                'Botón nuevo 🖼️ Imagen del mes, junto a 📤 Excel para auditoría: descarga el mes como PNG con los nombres completos, el VIN corto de lo realizado, los totales y la leyenda. Sale igual en cualquier equipo y no depende de internet.'] },
     { version: '3.31.0', date: '4 nov 2026', title: 'Elegir otra: el catálogo de Cascade y un buscador',
       bullets: ['Armar la semana → Elegir otra (en cascada) ofrece exactamente las configuraciones que se pueden dar de alta en Cascade (el mismo catálogo del Alta, incluidas las dadas de alta a mano). Si el plan de producción trae una configuración con el Modelo vacío, como los híbridos CL4MH, se lee con el Modelo de Cascade.',
                 'Lo que solo existe en el plan de producción y no en el catálogo de Cascade no se puede dar de alta, así que no se ofrece; la pantalla dice cuántas son.',
@@ -11870,14 +11878,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202611042244' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202611042307' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202611042244' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202611042307' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11893,7 +11901,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202611042244' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202611042307' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -56944,7 +56952,8 @@ function tpRenderCalendar(el) {
     if (year !== now.getFullYear() || month !== now.getMonth()) {
         h += '<button class="tp-btn tp-btn-ghost" onclick="_tpCalendarMonth=null;tpRender();">Ir a este mes</button>';
     }
-    h += '<button class="tp-btn" id="tp-cal-xlsx" onclick="tpAuditXlsxExportOpen()">📤 Excel para auditoría</button></div>';
+    h += '<button class="tp-btn" id="tp-cal-xlsx" onclick="tpAuditXlsxExportOpen()">📤 Excel para auditoría</button>' +
+         '<button class="tp-btn" id="tp-cal-png" onclick="tpCalendarImageExport()" title="El mes completo como imagen, con los nombres enteros">🖼️ Imagen del mes</button></div>';
 
     h += '<div class="tp-cal-metrics">' +
          '<div class="tp-metric"><div class="tp-metric-val tp-cal-ok">' + tests.all.length + '</div><div class="tp-metric-label">Pruebas realizadas</div></div>' +
@@ -56955,7 +56964,10 @@ function tpRenderCalendar(el) {
     // [2.33.0] Una fila por SEMANA (lunes a domingo) con su ▸ al inicio: es la entrada a
     // "Mi semana" para esa semana (armar, mover, vincular). El calendario es la vista de
     // planeación; el tablero, su zoom.
-    h += '<div class="tp-cal-grid tp-cal-grid--weeks" role="grid">';
+    // [3.32.0] Sábado y domingo se angostan cuando el mes no tiene nada en ellos: el ancho se
+    // lo llevan los días hábiles y los nombres de familia caben.
+    var slimWe = !tpCalendarWeekendUsed(rng, tests.byDay, planned);
+    h += '<div class="tp-cal-grid tp-cal-grid--weeks' + (slimWe ? ' tp-cal-grid--slimwe' : '') + '" role="grid">';
     h += '<div class="tp-cal-dow tp-cal-dow--wk" role="columnheader" aria-label="Semana"></div>';
     ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(function(dn) { h += '<div class="tp-cal-dow" role="columnheader">' + dn + '</div>'; });
     for (var lunes = tpMondayIso(rng.from); lunes && lunes <= rng.to; lunes = tpIsoAddDays(lunes, 7)) {
@@ -56983,8 +56995,8 @@ function tpRenderCalendar(el) {
                 return '<span class="tp-cal-pill ' + (p.proposal ? 'tp-cal-pill--prop' : 'tp-cal-pill--plan') + '" title="' +
                        escapeHtml((p.proposal ? 'Propuesta: ' : 'Planeada: ') + p.desc) + '">' + escapeHtml(p.familyShort) + '</span>';
             }));
-            h += pills.slice(0, 3).join('');
-            if (pills.length > 3) h += '<span class="tp-cal-more">+' + (pills.length - 3) + '</span>';
+            h += pills.slice(0, TP_CAL_PILLS_MAX).join('');
+            if (pills.length > TP_CAL_PILLS_MAX) h += '<span class="tp-cal-more">+' + (pills.length - TP_CAL_PILLS_MAX) + '</span>';
             h += '</button>';
         }
     }
@@ -57004,6 +57016,205 @@ function tpRenderCalendar(el) {
     }
     h += '</div><div id="tp-calendar-detail"></div>';
     el.innerHTML = h;
+}
+
+/** [3.32.0] Cuántas pruebas se ven por día en el calendario antes de "+N" (el resto, en el detalle). */
+var TP_CAL_PILLS_MAX = 6;
+
+/** [3.32.0] ¿El mes tiene algo en sábado o domingo? PURA (fechas 'AAAA-MM-DD'). */
+function tpCalendarWeekendUsed(rng, byDay, planned) {
+    var has = function(map) {
+        return Object.keys(map || {}).some(function(k) {
+            if (k < rng.from || k > rng.to || !(map[k] && map[k].length)) return false;
+            var wd = tpIsoWeekday(k);   // 0 = domingo … 6 = sábado
+            return wd === 0 || wd === 6;
+        });
+    };
+    return has(byDay) || has(planned);
+}
+
+// ── [3.32.0] El mes como imagen ──────────────────────────────────────────────
+// Se dibuja con Canvas a partir de los MISMOS datos del calendario (tpCalendarTests y
+// tpCalendarPlanned), no se fotografía la pantalla: así sale con los nombres completos sin
+// importar el ancho del equipo, y no depende de ninguna librería de un CDN (la red del
+// laboratorio los bloquea).
+
+/** Los datos del mes para la imagen. PURA respecto al DOM. */
+function tpCalendarImageModel(year, month) {
+    var rng = _tpCalMonthRange(year, month);
+    var tests = tpCalendarTests(rng.from, rng.to);
+    var planned = tpCalendarPlanned(rng.from, rng.to);
+    var days = {}, fams = {}, nPlan = 0, nProp = 0;
+    Object.keys(tests.byDay || {}).forEach(function(k) {
+        (tests.byDay[k] || []).forEach(function(t) {
+            fams[t.familyKey] = true;
+            (days[k] = days[k] || []).push({ kind: 'done', text: (t.familyShort || t.configCode || '?') + (t.vin ? ' · ' + _tpCalVinTail(t.vin) : '') });
+        });
+    });
+    Object.keys(planned).forEach(function(k) {
+        planned[k].forEach(function(p) {
+            if (p.proposal) nProp++; else nPlan++;
+            (days[k] = days[k] || []).push({ kind: p.proposal ? 'prop' : 'plan', text: p.familyShort || p.desc });
+        });
+    });
+    return { year: year, month: month, title: TP_CAL_MONTHS[month] + ' ' + year, rng: rng, days: days,
+             slimWeekend: !tpCalendarWeekendUsed(rng, tests.byDay, planned),
+             totals: { done: tests.all.length, fams: Object.keys(fams).length, plan: nPlan, prop: nProp, undated: tests.undated.length } };
+}
+
+/** Parte un texto en renglones que caben en `maxW`. `measure(texto)` da el ancho. PURA. */
+function tpCalWrap(text, maxW, measure) {
+    var out = [], line = '';
+    String(text || '').split(/\s+/).filter(Boolean).forEach(function(w) {
+        var tryLine = line ? line + ' ' + w : w;
+        if (measure(tryLine) <= maxW) { line = tryLine; return; }
+        if (line) out.push(line);
+        // Una palabra más ancha que la celda se corta por letras.
+        line = '';
+        var chunk = '';
+        w.split('').forEach(function(ch) {
+            if (measure(chunk + ch) > maxW && chunk) { out.push(chunk); chunk = ch; } else chunk += ch;
+        });
+        line = chunk;
+    });
+    if (line) out.push(line);
+    return out.length ? out : [''];
+}
+
+var TP_CAL_IMG = { W: 1800, pad: 28, head: 96, legend: 56, dow: 32, wk: 0, gap: 6, cellPad: 8, dayH: 24, lineH: 19, pillGap: 4,
+                   font: '15px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', minRow: 72, weW: 0.35 };
+
+/**
+ * El acomodo de la imagen: columnas, alto de cada semana y renglones de cada pastilla. PURA.
+ * `measure(texto)` mide con la letra de las pastillas (en la app, el contexto del canvas).
+ */
+function tpCalendarImageLayout(model, measure, cfg) {
+    cfg = cfg || TP_CAL_IMG;
+    var inner = cfg.W - 2 * cfg.pad;
+    var weights = [1, 1, 1, 1, 1, model.slimWeekend ? cfg.weW : 1, model.slimWeekend ? cfg.weW : 1];
+    var sumW = weights.reduce(function(a, b) { return a + b; }, 0);
+    var colsW = inner - cfg.gap * 6;
+    var cols = [], x = cfg.pad;
+    weights.forEach(function(w) { var cw = colsW * w / sumW; cols.push({ x: x, w: cw }); x += cw + cfg.gap; });
+    var weeks = [], y = cfg.pad + cfg.head + cfg.dow;
+    for (var lunes = tpMondayIso(model.rng.from); lunes && lunes <= model.rng.to; lunes = tpIsoAddDays(lunes, 7)) {
+        var cells = [], rowH = cfg.minRow;
+        for (var i = 0; i < 7; i++) {
+            var key = tpIsoAddDays(lunes, i);
+            var inMonth = key >= model.rng.from && key <= model.rng.to;
+            var textW = cols[i].w - 2 * cfg.cellPad - 8;
+            var pills = (inMonth ? (model.days[key] || []) : []).map(function(it) {
+                return { kind: it.kind, lines: tpCalWrap(it.text, textW, measure) };
+            });
+            var h = cfg.cellPad * 2 + cfg.dayH;
+            pills.forEach(function(p) { h += p.lines.length * cfg.lineH + 6 + cfg.pillGap; });
+            rowH = Math.max(rowH, h);
+            cells.push({ key: key, day: +key.slice(8, 10), inMonth: inMonth, weekend: i >= 5, pills: pills });
+        }
+        weeks.push({ y: y, h: rowH, cells: cells });
+        y += rowH + cfg.gap;
+    }
+    return { W: cfg.W, H: y + cfg.legend + cfg.pad, cols: cols, weeks: weeks, cfg: cfg };
+}
+
+var TP_CAL_IMG_COLORS = {
+    done: { bg: '#dcfce7', fg: '#166534' }, plan: { bg: '#fef3c7', fg: '#92400e' }, prop: { bg: '#f1f5f9', fg: '#475569', dash: true },
+    cell: '#ffffff', cellHas: '#f0fdf4', weekend: '#f8fafc', out: '#f1f5f9', border: '#cbd5e1', text: '#0f172a', muted: '#64748b'
+};
+
+function _tpCalImgRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+}
+
+/** Dibuja el mes en un canvas nuevo y lo devuelve. */
+function tpCalendarImageCanvas(year, month) {
+    var model = tpCalendarImageModel(year, month);
+    var cfg = TP_CAL_IMG, C = TP_CAL_IMG_COLORS;
+    var probe = document.createElement('canvas').getContext('2d');
+    probe.font = cfg.font;
+    var L = tpCalendarImageLayout(model, function(t) { return probe.measureText(t).width; }, cfg);
+    var scale = 2;   // nítida al imprimir o al pegar en un correo
+    var cv = document.createElement('canvas');
+    cv.width = L.W * scale; cv.height = L.H * scale;
+    var ctx = cv.getContext('2d');
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, L.W, L.H);
+    ctx.textBaseline = 'top';
+    // Encabezado
+    ctx.fillStyle = C.text; ctx.font = 'bold 30px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('Plan de pruebas — ' + model.title, cfg.pad, cfg.pad);
+    ctx.fillStyle = C.muted; ctx.font = '16px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    var t = model.totals;
+    ctx.fillText(t.done + ' pruebas realizadas · ' + t.fams + ' familias probadas · ' + t.plan + ' planeadas pendientes · ' +
+                 t.prop + ' en propuesta' + (t.undated ? ' · ' + t.undated + ' sin fecha de prueba (no aparecen)' : ''), cfg.pad, cfg.pad + 42);
+    ctx.fillText('KIA EmLab · cada prueba en su día de prueba · generado ' + (typeof localToday === 'function' ? localToday() : ''), cfg.pad, cfg.pad + 64);
+    // Días de la semana
+    ctx.fillStyle = C.muted; ctx.font = 'bold 15px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].forEach(function(dn, i) {
+        var c = L.cols[i];
+        ctx.fillText(dn, c.x + c.w / 2 - ctx.measureText(dn).width / 2, cfg.pad + cfg.head + 6);
+    });
+    // Semanas
+    L.weeks.forEach(function(wk) {
+        wk.cells.forEach(function(cell, i) {
+            var c = L.cols[i];
+            ctx.fillStyle = !cell.inMonth ? C.out : cell.pills.some(function(p) { return p.kind === 'done'; }) ? C.cellHas : cell.weekend ? C.weekend : C.cell;
+            _tpCalImgRect(ctx, c.x, wk.y, c.w, wk.h, 8); ctx.fill();
+            ctx.strokeStyle = C.border; ctx.lineWidth = 1; ctx.setLineDash([]); ctx.stroke();
+            if (!cell.inMonth) return;
+            ctx.fillStyle = C.text; ctx.font = 'bold 16px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(String(cell.day), c.x + cfg.cellPad, wk.y + cfg.cellPad);
+            var y = wk.y + cfg.cellPad + cfg.dayH;
+            ctx.font = cfg.font;
+            cell.pills.forEach(function(p) {
+                var col = C[p.kind] || C.plan;
+                var ph = p.lines.length * cfg.lineH + 6;
+                _tpCalImgRect(ctx, c.x + cfg.cellPad - 2, y, c.w - 2 * cfg.cellPad + 4, ph, 5);
+                ctx.fillStyle = col.bg; ctx.fill();
+                if (col.dash) { ctx.setLineDash([4, 3]); ctx.strokeStyle = C.border; ctx.stroke(); ctx.setLineDash([]); }
+                ctx.fillStyle = col.fg;
+                p.lines.forEach(function(line, j) { ctx.fillText(line, c.x + cfg.cellPad + 2, y + 3 + j * cfg.lineH); });
+                y += ph + cfg.pillGap;
+            });
+        });
+    });
+    // Leyenda
+    var ly = L.H - cfg.pad - 24, lx = cfg.pad;
+    ctx.font = '15px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    [['done', 'Realizada (día de prueba) · VIN corto'], ['plan', 'Planeada, pendiente'], ['prop', 'En una propuesta sin aceptar']].forEach(function(it) {
+        var col = C[it[0]];
+        _tpCalImgRect(ctx, lx, ly, 22, 18, 4); ctx.fillStyle = col.bg; ctx.fill();
+        ctx.strokeStyle = C.border; ctx.setLineDash(col.dash ? [4, 3] : []); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = C.text; ctx.fillText(it[1], lx + 30, ly + 1);
+        lx += 30 + ctx.measureText(it[1]).width + 36;
+    });
+    return cv;
+}
+
+/** Descarga el mes que se ve en el calendario como PNG. */
+function tpCalendarImageExport() {
+    try {
+        var now = new Date();
+        var m = _tpCalendarMonth || { year: now.getFullYear(), month: now.getMonth() };
+        var cv = tpCalendarImageCanvas(m.year, m.month);
+        var name = 'plan-pruebas-' + m.year + '-' + String(m.month + 1).padStart(2, '0') + '.png';
+        cv.toBlob(function(blob) {
+            if (!blob) { showToast('No se pudo crear la imagen en este equipo.', 'error'); return; }
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            document.body.appendChild(a); a.click();
+            setTimeout(function() { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 1500);
+            showToast('🖼️ Imagen descargada: ' + name, 'success');
+        }, 'image/png');
+    } catch (e) {
+        void 0;
+        showToast('No se pudo crear la imagen: ' + e.message, 'error');
+    }
 }
 
 function tpCalendarDayDetail(dateKey) {
@@ -73571,7 +73782,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202611042244' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202611042307' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -93964,7 +94175,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":10117,"mods":[[10120,"js/app.js",20478],[20482,"js/uiflow.js",20817],[20821,"js/cop15.js",32347],[32351,"js/inventory.js",40355],[40359,"js/cuarto.js",42489],[42493,"js/sitio.js",44676],[44680,"js/conslist.js",45288],[45292,"js/testplan.js",58692],[58696,"js/bloques.js",59324],[59328,"js/resumen.js",59635],[59639,"js/panel.js",65026],[65030,"js/projects.js",67319],[67323,"js/auth.js",68403],[68407,"js/signatures.js",68769],[68773,"js/firebase-sync.js",77411],[77415,"js/cop_validator.js",82363],[82367,"js/copreport.js",84517],[84521,"js/cophq.js",85331],[85335,"js/homolog.js",87232],[87236,"js/vets.js",89035],[89039,"js/historico.js",89953],[89957,"js/review.js",90426],[90430,"js/opcards.js",90879],[90883,"js/handoff.js",91162],[91166,"js/ficha.js",91667],[91671,"js/relevo.js",92051],[92055,"js/momentos.js",92192],[92196,"js/normas.js",92604],[92608,"js/digest.js",93536],[93540,"js/xlsxw.js",93920],[93924,"js/bugreport.js",95070]]};
+var BUG_LINE_MAP = {"tag":10121,"mods":[[10124,"js/app.js",20486],[20490,"js/uiflow.js",20825],[20829,"js/cop15.js",32355],[32359,"js/inventory.js",40363],[40367,"js/cuarto.js",42497],[42501,"js/sitio.js",44684],[44688,"js/conslist.js",45296],[45300,"js/testplan.js",58903],[58907,"js/bloques.js",59535],[59539,"js/resumen.js",59846],[59850,"js/panel.js",65237],[65241,"js/projects.js",67530],[67534,"js/auth.js",68614],[68618,"js/signatures.js",68980],[68984,"js/firebase-sync.js",77622],[77626,"js/cop_validator.js",82574],[82578,"js/copreport.js",84728],[84732,"js/cophq.js",85542],[85546,"js/homolog.js",87443],[87447,"js/vets.js",89246],[89250,"js/historico.js",90164],[90168,"js/review.js",90637],[90641,"js/opcards.js",91090],[91094,"js/handoff.js",91373],[91377,"js/ficha.js",91878],[91882,"js/relevo.js",92262],[92266,"js/momentos.js",92403],[92407,"js/normas.js",92815],[92819,"js/digest.js",93747],[93751,"js/xlsxw.js",94131],[94135,"js/bugreport.js",95281]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
