@@ -6531,7 +6531,11 @@ function tpArmarPickStepHTML(model) {
          (p.filtersOn && active ? ' · ' + active + ' activo(s)' : '') + '</summary>' + tpBuildWeekFilterHTML() + '</details>';
     h += '<div class="tp-armar-preview"><div class="tp-armar-subhead" data-help="tp-preview-help">⭐ Recomendadas para estos lugares</div>' +
          '<div id="tp-planner-preview"></div></div>';
-    h += '<div class="tp-armar-sub"><div class="tp-armar-subhead">🔎 Elegir otra (en cascada)</div><div id="tp-armar-picker">' + tpArmarPickerHTML() + '</div></div>';
+    // [3.31.0] El buscador va FUERA del bloque que se repinta: así no pierde el foco al teclear.
+    h += '<div class="tp-armar-sub"><div class="tp-armar-subhead">🔎 Elegir otra (en cascada)</div>' +
+         '<input type="search" id="tp-pick-q" class="tp-pick-q" placeholder="Buscar: ej.: cl4mh wgn, hibrido 27, kappa usa" ' +
+         'value="' + escapeHtml(window._tpPickQ || '') + '" oninput="tpPickSearch(this.value)" aria-label="Buscar configuración por palabras, en cualquier orden">' +
+         '<div id="tp-armar-picker">' + tpArmarPickerHTML() + '</div></div>';
     var backlog = (typeof tpBacklog === 'function') ? tpBacklog() : [];
     if (backlog.length) {
         var room = Math.max(0, T.tests - picks.length);
@@ -6631,9 +6635,66 @@ function tpPickerVaryFields(cfgs, levels) {
     });
 }
 
+/**
+ * [3.31.0] LAS configuraciones que ofrece el selector: el MISMO catálogo del Alta de Cascade
+ * (`allConfigurations`: el catálogo horneado + las dadas de alta a mano), con los datos de
+ * producción de `planData` encimados por `desc` (volumen, pausa) pero con la IDENTIDAD del
+ * catálogo: si producción trae el Modelo vacío (CL4MH), manda lo que dice Cascade. Lo que solo
+ * existe en producción no se puede dar de alta en Cascade, así que no se ofrece: se cuenta en
+ * `planOnly` y la pantalla lo dice. Memoizada con la llave de tpConfigCatalog.
+ */
+var _tpPickSrcMemo = { key: '', data: null };
+function tpPickerSource() {
+    var plan = tpState.planData || [];
+    var cat = (typeof allConfigurations !== 'undefined' && Array.isArray(allConfigurations)) ? allConfigurations : [];
+    var key = plan.length + '|' + (tpState._lastSave || 0) + '|' + cat.length + '|' +
+              cat.filter(function(c) { return c && c._source === 'manual'; }).length;
+    if (_tpPickSrcMemo.key === key && _tpPickSrcMemo.data) return _tpPickSrcMemo.data;
+    var byPlan = {};
+    plan.forEach(function(c) { if (c && c.desc) byPlan[c.desc] = c; });
+    var seen = {}, list = [];
+    cat.forEach(function(row) {
+        var c = tpCfgFromCatalogRow(row);
+        if (!c || seen[c.desc]) return;
+        seen[c.desc] = true;
+        var p = byPlan[c.desc];
+        if (p) {
+            var ident = {};
+            TP_TIRE_FREE_FIELDS.concat(['tire']).forEach(function(f) { if (c[f]) ident[f] = c[f]; });
+            c = Object.assign({}, p, ident);
+            delete c._catalogOnly;
+        }
+        list.push(c);
+    });
+    var planOnly = plan.filter(function(c) { return c && c.desc && !seen[c.desc]; }).length;
+    _tpPickSrcMemo = { key: key, data: { list: list, planOnly: planOnly } };
+    return _tpPickSrcMemo.data;
+}
+
+/** [3.31.0] El texto en el que busca el selector: código, nombre, familia y todos sus campos. */
+function tpPickerHay(c) {
+    if (!c) return '';
+    var parts = [c.desc, c.mod, c.my, c.eng, c.engpkg, c.tx, c.ep, c.reg, c.rgn, c.body, c.drv, c.tire,
+                 tpTireShort(c.tire), tpConfigShortName(c)];
+    var ep = typeof tpEpLabel === 'function' ? tpEpLabel(c.ep) : '';
+    if (ep) parts.push(ep);
+    if (typeof tpScoreFamLabel === 'function') { try { parts.push(tpScoreFamLabel(c)); } catch (e) {} }
+    // Se escribe "híbrido" más que "HEV" o "CL4MH".
+    if (/HEV/i.test(String(c.ep || '')) || /MH$/i.test(String(c.mod || ''))) parts.push('hibrido hybrid hev');
+    return parts.filter(Boolean).join(' ');
+}
+
+function tpPickSearch(q) {
+    window._tpPickQ = String(q || '');
+    clearTimeout(window._tpPickQT);
+    window._tpPickQT = setTimeout(tpArmarPickerRepaint, 120);
+}
+
 function tpArmarPickerHTML() {
     var picks = window._tpPick || {};
-    var cat = tpConfigCatalog();
+    var src = tpPickerSource();
+    var q = String(window._tpPickQ || '').trim();
+    var cat = q ? src.list.filter(function(c) { return tpSearchMatch(tpPickerHay(c), q); }) : src.list;
     var M = tpPickerModel(cat, picks, TP_PICK_LEVELS);
     var an = {};
     (typeof tpGetAnalysis === 'function' ? tpGetAnalysis() : []).forEach(function(a) { an[a.desc] = a; });
@@ -6659,8 +6720,10 @@ function tpArmarPickerHTML() {
     }
     // [3.30.0] Una fila por configuración SIN rin (tpTireGroupKey): los rines van juntos.
     var rows = tpPickerRows(M.matches, an);
-    if (!manualCrumbs.length && rows.length > TP_PICK_SHOW) {
-        return h + '<p class="tp-armar-hint">' + rows.length + ' configuraciones: empieza por el modelo.</p>';
+    var _planOnly = src.planOnly ? '<p class="tp-armar-hint u-muted">' + src.planOnly +
+        ' configuración(es) del plan de producción no están en el catálogo de Cascade: no se pueden dar de alta, así que no se ofrecen aquí.</p>' : '';
+    if (!manualCrumbs.length && !q && rows.length > TP_PICK_SHOW) {
+        return h + '<p class="tp-armar-hint">' + rows.length + ' configuraciones (el catálogo de Cascade): empieza por el modelo o escribe arriba.</p>' + _planOnly;
     }
     // Lo que distingue a las filas que quedan: los campos que todavía cambian entre ellas.
     // (Modelo, motor, paquete de motor, transmisión y año ya van en el nombre.)
@@ -6682,9 +6745,9 @@ function tpArmarPickerHTML() {
              (veces ? '＋ otra (' + veces + ')' : '＋ Elegir') + '</button></div>';
     });
     h += '</div>';
-    if (rows.length > TP_PICK_SHOW) h += '<p class="tp-armar-hint">y ' + (rows.length - TP_PICK_SHOW) + ' más: sigue eligiendo para acotar.</p>';
-    if (!rows.length) h += '<p class="tp-armar-hint">Nada coincide.</p>';
-    return h;
+    if (rows.length > TP_PICK_SHOW) h += '<p class="tp-armar-hint">y ' + (rows.length - TP_PICK_SHOW) + ' más: sigue eligiendo o escribe más palabras para acotar.</p>';
+    if (!rows.length) h += '<p class="tp-armar-hint">Nada coincide' + (q ? ' con "' + escapeHtml(q) + '"' + (manualCrumbs.length ? ' dentro de lo elegido: prueba con «Empezar de nuevo».' : '.') : '.') + '</p>';
+    return h + _planOnly;
 }
 
 function tpArmarPickerRepaint() {
@@ -6704,7 +6767,13 @@ function tpPickUndo(field) {
     window._tpPick = p;
     tpArmarPickerRepaint();
 }
-function tpPickClear() { window._tpPick = {}; tpArmarPickerRepaint(); }
+function tpPickClear() {
+    window._tpPick = {};
+    window._tpPickQ = '';
+    var inp = document.getElementById('tp-pick-q');
+    if (inp) inp.value = '';
+    tpArmarPickerRepaint();
+}
 /** Elegir una configuración = fijarla en la semana (las repetidas son dos vehículos iguales). */
 function tpPickAdd(desc) {
     window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];

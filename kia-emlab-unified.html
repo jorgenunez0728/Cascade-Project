@@ -7763,6 +7763,8 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .tp-wd-sum { font-size: var(--fs-sm); margin: var(--space-sm) 0 0; }
 .tp-wd-master { font-size: var(--fs-base); max-width: 100%; }
 .tp-armar-filters > summary, .tp-armar-sub > summary { cursor: pointer; font-size: var(--fs-sm); padding: var(--space-xs) 0; }
+.tp-pick-q { width: 100%; font-size: var(--fs-base); padding: var(--space-xs) var(--space-sm); min-height: var(--target-min, 32px);
+  border: 1px solid var(--tp-border); border-radius: var(--radius-md); margin-bottom: var(--space-xs); background: var(--surface); color: var(--tp-text); }
 .tp-pick-crumbs { display: flex; flex-wrap: wrap; gap: var(--space-2xs); align-items: center; margin-bottom: var(--space-xs); }
 .tp-pick-crumb { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); border: 1px solid var(--info-text); border-radius: var(--radius-full);
     background: var(--info-bg); color: var(--info-text); cursor: pointer; }
@@ -10581,10 +10583,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202611032226';
+var APP_BUILD = '202611042244';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '29e2708c10ec2a5e8bcd4a3fc2e214f281ef05b4';
+var APP_COMMIT = '4d5ef50b56cee6f6505da1d3bdd092e583c8f038';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10592,7 +10594,7 @@ var APP_COMMIT = '29e2708c10ec2a5e8bcd4a3fc2e214f281ef05b4';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.30.0';
+var APP_VERSION = '3.31.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10600,6 +10602,10 @@ var APP_VERSION = '3.30.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.31.0', date: '4 nov 2026', title: 'Elegir otra: el catálogo de Cascade y un buscador',
+      bullets: ['Armar la semana → Elegir otra (en cascada) ofrece exactamente las configuraciones que se pueden dar de alta en Cascade (el mismo catálogo del Alta, incluidas las dadas de alta a mano). Si el plan de producción trae una configuración con el Modelo vacío, como los híbridos CL4MH, se lee con el Modelo de Cascade.',
+                'Lo que solo existe en el plan de producción y no en el catálogo de Cascade no se puede dar de alta, así que no se ofrece; la pantalla dice cuántas son.',
+                'Buscador arriba del selector: pocas palabras, en cualquier orden y sin acentos (ej.: "cl4mh wgn", "hibrido r18", "kappa usa"). Se combina con lo elegido en la cascada.'] },
     { version: '3.30.0', date: '3 nov 2026', title: 'El rin no separa pruebas',
       bullets: ['Plan: las configuraciones que solo cambian de llanta son UNA para planear. Su REQ sale del volumen de todas juntas y una prueba con cualquier rin cuenta para todas; el pendiente lo lleva la de más volumen y las demás dicen que el REQ lo lleva otra llanta.',
                 'Armar la semana → Elegir otra (en cascada): ya no pregunta la llanta. Sale un renglón por configuración con sus rines (por ejemplo "rines R16, R17, R18"), y cuando quedan varios renglones con el mismo nombre se dice qué los distingue (por ejemplo LHD / RHD).',
@@ -11864,14 +11870,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202611032226' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202611042244' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202611032226' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202611042244' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11887,7 +11893,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202611032226' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202611042244' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -51816,7 +51822,11 @@ function tpArmarPickStepHTML(model) {
          (p.filtersOn && active ? ' · ' + active + ' activo(s)' : '') + '</summary>' + tpBuildWeekFilterHTML() + '</details>';
     h += '<div class="tp-armar-preview"><div class="tp-armar-subhead" data-help="tp-preview-help">⭐ Recomendadas para estos lugares</div>' +
          '<div id="tp-planner-preview"></div></div>';
-    h += '<div class="tp-armar-sub"><div class="tp-armar-subhead">🔎 Elegir otra (en cascada)</div><div id="tp-armar-picker">' + tpArmarPickerHTML() + '</div></div>';
+    // [3.31.0] El buscador va FUERA del bloque que se repinta: así no pierde el foco al teclear.
+    h += '<div class="tp-armar-sub"><div class="tp-armar-subhead">🔎 Elegir otra (en cascada)</div>' +
+         '<input type="search" id="tp-pick-q" class="tp-pick-q" placeholder="Buscar: ej.: cl4mh wgn, hibrido 27, kappa usa" ' +
+         'value="' + escapeHtml(window._tpPickQ || '') + '" oninput="tpPickSearch(this.value)" aria-label="Buscar configuración por palabras, en cualquier orden">' +
+         '<div id="tp-armar-picker">' + tpArmarPickerHTML() + '</div></div>';
     var backlog = (typeof tpBacklog === 'function') ? tpBacklog() : [];
     if (backlog.length) {
         var room = Math.max(0, T.tests - picks.length);
@@ -51916,9 +51926,66 @@ function tpPickerVaryFields(cfgs, levels) {
     });
 }
 
+/**
+ * [3.31.0] LAS configuraciones que ofrece el selector: el MISMO catálogo del Alta de Cascade
+ * (`allConfigurations`: el catálogo horneado + las dadas de alta a mano), con los datos de
+ * producción de `planData` encimados por `desc` (volumen, pausa) pero con la IDENTIDAD del
+ * catálogo: si producción trae el Modelo vacío (CL4MH), manda lo que dice Cascade. Lo que solo
+ * existe en producción no se puede dar de alta en Cascade, así que no se ofrece: se cuenta en
+ * `planOnly` y la pantalla lo dice. Memoizada con la llave de tpConfigCatalog.
+ */
+var _tpPickSrcMemo = { key: '', data: null };
+function tpPickerSource() {
+    var plan = tpState.planData || [];
+    var cat = (typeof allConfigurations !== 'undefined' && Array.isArray(allConfigurations)) ? allConfigurations : [];
+    var key = plan.length + '|' + (tpState._lastSave || 0) + '|' + cat.length + '|' +
+              cat.filter(function(c) { return c && c._source === 'manual'; }).length;
+    if (_tpPickSrcMemo.key === key && _tpPickSrcMemo.data) return _tpPickSrcMemo.data;
+    var byPlan = {};
+    plan.forEach(function(c) { if (c && c.desc) byPlan[c.desc] = c; });
+    var seen = {}, list = [];
+    cat.forEach(function(row) {
+        var c = tpCfgFromCatalogRow(row);
+        if (!c || seen[c.desc]) return;
+        seen[c.desc] = true;
+        var p = byPlan[c.desc];
+        if (p) {
+            var ident = {};
+            TP_TIRE_FREE_FIELDS.concat(['tire']).forEach(function(f) { if (c[f]) ident[f] = c[f]; });
+            c = Object.assign({}, p, ident);
+            delete c._catalogOnly;
+        }
+        list.push(c);
+    });
+    var planOnly = plan.filter(function(c) { return c && c.desc && !seen[c.desc]; }).length;
+    _tpPickSrcMemo = { key: key, data: { list: list, planOnly: planOnly } };
+    return _tpPickSrcMemo.data;
+}
+
+/** [3.31.0] El texto en el que busca el selector: código, nombre, familia y todos sus campos. */
+function tpPickerHay(c) {
+    if (!c) return '';
+    var parts = [c.desc, c.mod, c.my, c.eng, c.engpkg, c.tx, c.ep, c.reg, c.rgn, c.body, c.drv, c.tire,
+                 tpTireShort(c.tire), tpConfigShortName(c)];
+    var ep = typeof tpEpLabel === 'function' ? tpEpLabel(c.ep) : '';
+    if (ep) parts.push(ep);
+    if (typeof tpScoreFamLabel === 'function') { try { parts.push(tpScoreFamLabel(c)); } catch (e) {} }
+    // Se escribe "híbrido" más que "HEV" o "CL4MH".
+    if (/HEV/i.test(String(c.ep || '')) || /MH$/i.test(String(c.mod || ''))) parts.push('hibrido hybrid hev');
+    return parts.filter(Boolean).join(' ');
+}
+
+function tpPickSearch(q) {
+    window._tpPickQ = String(q || '');
+    clearTimeout(window._tpPickQT);
+    window._tpPickQT = setTimeout(tpArmarPickerRepaint, 120);
+}
+
 function tpArmarPickerHTML() {
     var picks = window._tpPick || {};
-    var cat = tpConfigCatalog();
+    var src = tpPickerSource();
+    var q = String(window._tpPickQ || '').trim();
+    var cat = q ? src.list.filter(function(c) { return tpSearchMatch(tpPickerHay(c), q); }) : src.list;
     var M = tpPickerModel(cat, picks, TP_PICK_LEVELS);
     var an = {};
     (typeof tpGetAnalysis === 'function' ? tpGetAnalysis() : []).forEach(function(a) { an[a.desc] = a; });
@@ -51944,8 +52011,10 @@ function tpArmarPickerHTML() {
     }
     // [3.30.0] Una fila por configuración SIN rin (tpTireGroupKey): los rines van juntos.
     var rows = tpPickerRows(M.matches, an);
-    if (!manualCrumbs.length && rows.length > TP_PICK_SHOW) {
-        return h + '<p class="tp-armar-hint">' + rows.length + ' configuraciones: empieza por el modelo.</p>';
+    var _planOnly = src.planOnly ? '<p class="tp-armar-hint u-muted">' + src.planOnly +
+        ' configuración(es) del plan de producción no están en el catálogo de Cascade: no se pueden dar de alta, así que no se ofrecen aquí.</p>' : '';
+    if (!manualCrumbs.length && !q && rows.length > TP_PICK_SHOW) {
+        return h + '<p class="tp-armar-hint">' + rows.length + ' configuraciones (el catálogo de Cascade): empieza por el modelo o escribe arriba.</p>' + _planOnly;
     }
     // Lo que distingue a las filas que quedan: los campos que todavía cambian entre ellas.
     // (Modelo, motor, paquete de motor, transmisión y año ya van en el nombre.)
@@ -51967,9 +52036,9 @@ function tpArmarPickerHTML() {
              (veces ? '＋ otra (' + veces + ')' : '＋ Elegir') + '</button></div>';
     });
     h += '</div>';
-    if (rows.length > TP_PICK_SHOW) h += '<p class="tp-armar-hint">y ' + (rows.length - TP_PICK_SHOW) + ' más: sigue eligiendo para acotar.</p>';
-    if (!rows.length) h += '<p class="tp-armar-hint">Nada coincide.</p>';
-    return h;
+    if (rows.length > TP_PICK_SHOW) h += '<p class="tp-armar-hint">y ' + (rows.length - TP_PICK_SHOW) + ' más: sigue eligiendo o escribe más palabras para acotar.</p>';
+    if (!rows.length) h += '<p class="tp-armar-hint">Nada coincide' + (q ? ' con "' + escapeHtml(q) + '"' + (manualCrumbs.length ? ' dentro de lo elegido: prueba con «Empezar de nuevo».' : '.') : '.') + '</p>';
+    return h + _planOnly;
 }
 
 function tpArmarPickerRepaint() {
@@ -51989,7 +52058,13 @@ function tpPickUndo(field) {
     window._tpPick = p;
     tpArmarPickerRepaint();
 }
-function tpPickClear() { window._tpPick = {}; tpArmarPickerRepaint(); }
+function tpPickClear() {
+    window._tpPick = {};
+    window._tpPickQ = '';
+    var inp = document.getElementById('tp-pick-q');
+    if (inp) inp.value = '';
+    tpArmarPickerRepaint();
+}
 /** Elegir una configuración = fijarla en la semana (las repetidas son dos vehículos iguales). */
 function tpPickAdd(desc) {
     window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];
@@ -73496,7 +73571,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202611032226' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202611042244' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -93889,7 +93964,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":10115,"mods":[[10118,"js/app.js",20472],[20476,"js/uiflow.js",20811],[20815,"js/cop15.js",32341],[32345,"js/inventory.js",40349],[40353,"js/cuarto.js",42483],[42487,"js/sitio.js",44670],[44674,"js/conslist.js",45282],[45286,"js/testplan.js",58617],[58621,"js/bloques.js",59249],[59253,"js/resumen.js",59560],[59564,"js/panel.js",64951],[64955,"js/projects.js",67244],[67248,"js/auth.js",68328],[68332,"js/signatures.js",68694],[68698,"js/firebase-sync.js",77336],[77340,"js/cop_validator.js",82288],[82292,"js/copreport.js",84442],[84446,"js/cophq.js",85256],[85260,"js/homolog.js",87157],[87161,"js/vets.js",88960],[88964,"js/historico.js",89878],[89882,"js/review.js",90351],[90355,"js/opcards.js",90804],[90808,"js/handoff.js",91087],[91091,"js/ficha.js",91592],[91596,"js/relevo.js",91976],[91980,"js/momentos.js",92117],[92121,"js/normas.js",92529],[92533,"js/digest.js",93461],[93465,"js/xlsxw.js",93845],[93849,"js/bugreport.js",94995]]};
+var BUG_LINE_MAP = {"tag":10117,"mods":[[10120,"js/app.js",20478],[20482,"js/uiflow.js",20817],[20821,"js/cop15.js",32347],[32351,"js/inventory.js",40355],[40359,"js/cuarto.js",42489],[42493,"js/sitio.js",44676],[44680,"js/conslist.js",45288],[45292,"js/testplan.js",58692],[58696,"js/bloques.js",59324],[59328,"js/resumen.js",59635],[59639,"js/panel.js",65026],[65030,"js/projects.js",67319],[67323,"js/auth.js",68403],[68407,"js/signatures.js",68769],[68773,"js/firebase-sync.js",77411],[77415,"js/cop_validator.js",82363],[82367,"js/copreport.js",84517],[84521,"js/cophq.js",85331],[85335,"js/homolog.js",87232],[87236,"js/vets.js",89035],[89039,"js/historico.js",89953],[89957,"js/review.js",90426],[90430,"js/opcards.js",90879],[90883,"js/handoff.js",91162],[91166,"js/ficha.js",91667],[91671,"js/relevo.js",92051],[92055,"js/momentos.js",92192],[92196,"js/normas.js",92604],[92608,"js/digest.js",93536],[93540,"js/xlsxw.js",93920],[93924,"js/bugreport.js",95070]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

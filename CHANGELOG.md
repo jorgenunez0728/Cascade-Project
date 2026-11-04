@@ -20,6 +20,28 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.31.0 — Elegir otra: el catálogo de Cascade y un buscador (2026-11-04)
+
+### Cambió
+- **Armar la semana → Elegir otra (en cascada)** ofrece exactamente las configuraciones del
+  catálogo del Alta de Cascade (el horneado + las dadas de alta a mano). El volumen sigue saliendo
+  del plan de producción, pero los campos (Modelo, motor, carrocería…) son los de Cascade: si
+  producción trae el Modelo vacío, como los híbridos **CL4MH**, ya salen bajo su Modelo.
+- Lo que solo existe en el plan de producción no se puede dar de alta en Cascade y no se ofrece;
+  la pantalla dice cuántas son.
+
+### Nuevo
+- **Buscador** arriba del selector: pocas palabras, en cualquier orden y sin acentos ("cl4mh wgn",
+  "hibrido r18", "kappa usa"). "híbrido" encuentra las configuraciones HEV y CL4MH. Se combina con
+  lo elegido en la cascada; "Empezar de nuevo" limpia los dos.
+
+### Para desarrollo
+- `tpPickerSource()` (memoizada) es LA fuente del selector: `allConfigurations` vía
+  `tpCfgFromCatalogRow`, con la fila de `planData` encimada por `desc` y la identidad del catálogo.
+  Devuelve `{list, planOnly}`.
+- `tpPickerHay(c)` es el texto donde se busca; `tpPickSearch` repinta con 120 ms de espera. El
+  campo vive FUERA de `#tp-armar-picker` para no perder el foco al repintar.
+
 ## 3.30.0 — El rin no separa pruebas (2026-11-03)
 
 Decisión del laboratorio: en todas las familias, los distintos rines van juntos; no se prueban
