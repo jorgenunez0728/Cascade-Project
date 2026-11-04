@@ -4360,3 +4360,11 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
   por la CLAVE, nunca por el texto del nombre.
 - `_ysTestCfg(t)` resuelve la configuración de una prueba: catálogo → su vehículo → clave de
   familia. La clave no trae región: con ella sola `tpScoreMergesMy` da `false` y los MY no se juntan.
+
+## 3.33.0 — Resumen del año en inglés (`js/resumen.js`)
+
+- **`YS_TXT` (`es`/`en`) + `tpYearText(lang, k, vars)` (PURA) son LOS textos del Resumen del año.**
+  Todo texto nuevo de esa pantalla va en los dos idiomas a la vez (`tests/plan.node.js` compara las
+  claves). Solo cambia lo que se lee: modelo, claves y datos son los mismos.
+- El idioma es `uiPref('yearSum').lang` (por equipo, no se sincroniza). Un factor nuevo del score
+  agrega su nombre en `YS_TXT.en.parts` por su clave `k`; si falta, sale el de español.
