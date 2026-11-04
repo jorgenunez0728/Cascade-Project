@@ -20,6 +20,27 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.32.0 — Calendario: nombres completos e imagen del mes (2026-11-04)
+
+### Nuevo
+- **🖼️ Imagen del mes** en Plan → Calendario (junto a 📤 Excel para auditoría): descarga el mes
+  como PNG con los nombres completos de las familias, el VIN corto de lo realizado, los totales y
+  la leyenda. Se dibuja con los datos del calendario, no es una foto de la pantalla: sale igual en
+  cualquier equipo y no depende de internet.
+
+### Cambió
+- Los nombres de familia en el calendario ya no se cortan: se parten en renglones. Se ven hasta 6
+  pruebas por día antes del "+N" (antes 3).
+- Si el mes no tiene nada en sábado ni domingo, esas columnas se angostan y el ancho se va a los
+  días hábiles. Con una prueba en fin de semana, vuelven a su tamaño.
+
+### Para desarrollo
+- `tpCalendarWeekendUsed(rng, byDay, planned)` (PURA) decide el fin de semana angosto
+  (`.tp-cal-grid--slimwe`).
+- `tpCalendarImageModel` → `tpCalendarImageLayout(model, measure)` (PURA) → `tpCalendarImageCanvas`
+  → `tpCalendarImageExport`. `tpCalWrap(texto, ancho, measure)` (PURA) parte los renglones.
+  `TP_CAL_PILLS_MAX` es el tope por día en pantalla.
+
 ## 3.31.0 — Elegir otra: el catálogo de Cascade y un buscador (2026-11-04)
 
 ### Cambió

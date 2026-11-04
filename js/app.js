@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.31.0';
+var APP_VERSION = '3.32.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,10 @@ var APP_VERSION = '3.31.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.32.0', date: '4 nov 2026', title: 'Calendario: nombres completos e imagen del mes',
+      bullets: ['Plan → Calendario: los nombres de familia ya no se cortan; si no caben se parten en dos renglones. Se ven hasta 6 pruebas por día (antes 3).',
+                'Si el mes no tiene nada en sábado ni domingo, esas dos columnas se angostan y el ancho se lo llevan los días hábiles. Si algún fin de semana tiene una prueba, vuelven a su tamaño.',
+                'Botón nuevo 🖼️ Imagen del mes, junto a 📤 Excel para auditoría: descarga el mes como PNG con los nombres completos, el VIN corto de lo realizado, los totales y la leyenda. Sale igual en cualquier equipo y no depende de internet.'] },
     { version: '3.31.0', date: '4 nov 2026', title: 'Elegir otra: el catálogo de Cascade y un buscador',
       bullets: ['Armar la semana → Elegir otra (en cascada) ofrece exactamente las configuraciones que se pueden dar de alta en Cascade (el mismo catálogo del Alta, incluidas las dadas de alta a mano). Si el plan de producción trae una configuración con el Modelo vacío, como los híbridos CL4MH, se lee con el Modelo de Cascade.',
                 'Lo que solo existe en el plan de producción y no en el catálogo de Cascade no se puede dar de alta, así que no se ofrece; la pantalla dice cuántas son.',

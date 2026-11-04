@@ -11653,7 +11653,8 @@ function tpRenderCalendar(el) {
     if (year !== now.getFullYear() || month !== now.getMonth()) {
         h += '<button class="tp-btn tp-btn-ghost" onclick="_tpCalendarMonth=null;tpRender();">Ir a este mes</button>';
     }
-    h += '<button class="tp-btn" id="tp-cal-xlsx" onclick="tpAuditXlsxExportOpen()">📤 Excel para auditoría</button></div>';
+    h += '<button class="tp-btn" id="tp-cal-xlsx" onclick="tpAuditXlsxExportOpen()">📤 Excel para auditoría</button>' +
+         '<button class="tp-btn" id="tp-cal-png" onclick="tpCalendarImageExport()" title="El mes completo como imagen, con los nombres enteros">🖼️ Imagen del mes</button></div>';
 
     h += '<div class="tp-cal-metrics">' +
          '<div class="tp-metric"><div class="tp-metric-val tp-cal-ok">' + tests.all.length + '</div><div class="tp-metric-label">Pruebas realizadas</div></div>' +
@@ -11664,7 +11665,10 @@ function tpRenderCalendar(el) {
     // [2.33.0] Una fila por SEMANA (lunes a domingo) con su ▸ al inicio: es la entrada a
     // "Mi semana" para esa semana (armar, mover, vincular). El calendario es la vista de
     // planeación; el tablero, su zoom.
-    h += '<div class="tp-cal-grid tp-cal-grid--weeks" role="grid">';
+    // [3.32.0] Sábado y domingo se angostan cuando el mes no tiene nada en ellos: el ancho se
+    // lo llevan los días hábiles y los nombres de familia caben.
+    var slimWe = !tpCalendarWeekendUsed(rng, tests.byDay, planned);
+    h += '<div class="tp-cal-grid tp-cal-grid--weeks' + (slimWe ? ' tp-cal-grid--slimwe' : '') + '" role="grid">';
     h += '<div class="tp-cal-dow tp-cal-dow--wk" role="columnheader" aria-label="Semana"></div>';
     ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(function(dn) { h += '<div class="tp-cal-dow" role="columnheader">' + dn + '</div>'; });
     for (var lunes = tpMondayIso(rng.from); lunes && lunes <= rng.to; lunes = tpIsoAddDays(lunes, 7)) {
@@ -11692,8 +11696,8 @@ function tpRenderCalendar(el) {
                 return '<span class="tp-cal-pill ' + (p.proposal ? 'tp-cal-pill--prop' : 'tp-cal-pill--plan') + '" title="' +
                        escapeHtml((p.proposal ? 'Propuesta: ' : 'Planeada: ') + p.desc) + '">' + escapeHtml(p.familyShort) + '</span>';
             }));
-            h += pills.slice(0, 3).join('');
-            if (pills.length > 3) h += '<span class="tp-cal-more">+' + (pills.length - 3) + '</span>';
+            h += pills.slice(0, TP_CAL_PILLS_MAX).join('');
+            if (pills.length > TP_CAL_PILLS_MAX) h += '<span class="tp-cal-more">+' + (pills.length - TP_CAL_PILLS_MAX) + '</span>';
             h += '</button>';
         }
     }
@@ -11713,6 +11717,205 @@ function tpRenderCalendar(el) {
     }
     h += '</div><div id="tp-calendar-detail"></div>';
     el.innerHTML = h;
+}
+
+/** [3.32.0] Cuántas pruebas se ven por día en el calendario antes de "+N" (el resto, en el detalle). */
+var TP_CAL_PILLS_MAX = 6;
+
+/** [3.32.0] ¿El mes tiene algo en sábado o domingo? PURA (fechas 'AAAA-MM-DD'). */
+function tpCalendarWeekendUsed(rng, byDay, planned) {
+    var has = function(map) {
+        return Object.keys(map || {}).some(function(k) {
+            if (k < rng.from || k > rng.to || !(map[k] && map[k].length)) return false;
+            var wd = tpIsoWeekday(k);   // 0 = domingo … 6 = sábado
+            return wd === 0 || wd === 6;
+        });
+    };
+    return has(byDay) || has(planned);
+}
+
+// ── [3.32.0] El mes como imagen ──────────────────────────────────────────────
+// Se dibuja con Canvas a partir de los MISMOS datos del calendario (tpCalendarTests y
+// tpCalendarPlanned), no se fotografía la pantalla: así sale con los nombres completos sin
+// importar el ancho del equipo, y no depende de ninguna librería de un CDN (la red del
+// laboratorio los bloquea).
+
+/** Los datos del mes para la imagen. PURA respecto al DOM. */
+function tpCalendarImageModel(year, month) {
+    var rng = _tpCalMonthRange(year, month);
+    var tests = tpCalendarTests(rng.from, rng.to);
+    var planned = tpCalendarPlanned(rng.from, rng.to);
+    var days = {}, fams = {}, nPlan = 0, nProp = 0;
+    Object.keys(tests.byDay || {}).forEach(function(k) {
+        (tests.byDay[k] || []).forEach(function(t) {
+            fams[t.familyKey] = true;
+            (days[k] = days[k] || []).push({ kind: 'done', text: (t.familyShort || t.configCode || '?') + (t.vin ? ' · ' + _tpCalVinTail(t.vin) : '') });
+        });
+    });
+    Object.keys(planned).forEach(function(k) {
+        planned[k].forEach(function(p) {
+            if (p.proposal) nProp++; else nPlan++;
+            (days[k] = days[k] || []).push({ kind: p.proposal ? 'prop' : 'plan', text: p.familyShort || p.desc });
+        });
+    });
+    return { year: year, month: month, title: TP_CAL_MONTHS[month] + ' ' + year, rng: rng, days: days,
+             slimWeekend: !tpCalendarWeekendUsed(rng, tests.byDay, planned),
+             totals: { done: tests.all.length, fams: Object.keys(fams).length, plan: nPlan, prop: nProp, undated: tests.undated.length } };
+}
+
+/** Parte un texto en renglones que caben en `maxW`. `measure(texto)` da el ancho. PURA. */
+function tpCalWrap(text, maxW, measure) {
+    var out = [], line = '';
+    String(text || '').split(/\s+/).filter(Boolean).forEach(function(w) {
+        var tryLine = line ? line + ' ' + w : w;
+        if (measure(tryLine) <= maxW) { line = tryLine; return; }
+        if (line) out.push(line);
+        // Una palabra más ancha que la celda se corta por letras.
+        line = '';
+        var chunk = '';
+        w.split('').forEach(function(ch) {
+            if (measure(chunk + ch) > maxW && chunk) { out.push(chunk); chunk = ch; } else chunk += ch;
+        });
+        line = chunk;
+    });
+    if (line) out.push(line);
+    return out.length ? out : [''];
+}
+
+var TP_CAL_IMG = { W: 1800, pad: 28, head: 96, legend: 56, dow: 32, wk: 0, gap: 6, cellPad: 8, dayH: 24, lineH: 19, pillGap: 4,
+                   font: '15px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', minRow: 72, weW: 0.35 };
+
+/**
+ * El acomodo de la imagen: columnas, alto de cada semana y renglones de cada pastilla. PURA.
+ * `measure(texto)` mide con la letra de las pastillas (en la app, el contexto del canvas).
+ */
+function tpCalendarImageLayout(model, measure, cfg) {
+    cfg = cfg || TP_CAL_IMG;
+    var inner = cfg.W - 2 * cfg.pad;
+    var weights = [1, 1, 1, 1, 1, model.slimWeekend ? cfg.weW : 1, model.slimWeekend ? cfg.weW : 1];
+    var sumW = weights.reduce(function(a, b) { return a + b; }, 0);
+    var colsW = inner - cfg.gap * 6;
+    var cols = [], x = cfg.pad;
+    weights.forEach(function(w) { var cw = colsW * w / sumW; cols.push({ x: x, w: cw }); x += cw + cfg.gap; });
+    var weeks = [], y = cfg.pad + cfg.head + cfg.dow;
+    for (var lunes = tpMondayIso(model.rng.from); lunes && lunes <= model.rng.to; lunes = tpIsoAddDays(lunes, 7)) {
+        var cells = [], rowH = cfg.minRow;
+        for (var i = 0; i < 7; i++) {
+            var key = tpIsoAddDays(lunes, i);
+            var inMonth = key >= model.rng.from && key <= model.rng.to;
+            var textW = cols[i].w - 2 * cfg.cellPad - 8;
+            var pills = (inMonth ? (model.days[key] || []) : []).map(function(it) {
+                return { kind: it.kind, lines: tpCalWrap(it.text, textW, measure) };
+            });
+            var h = cfg.cellPad * 2 + cfg.dayH;
+            pills.forEach(function(p) { h += p.lines.length * cfg.lineH + 6 + cfg.pillGap; });
+            rowH = Math.max(rowH, h);
+            cells.push({ key: key, day: +key.slice(8, 10), inMonth: inMonth, weekend: i >= 5, pills: pills });
+        }
+        weeks.push({ y: y, h: rowH, cells: cells });
+        y += rowH + cfg.gap;
+    }
+    return { W: cfg.W, H: y + cfg.legend + cfg.pad, cols: cols, weeks: weeks, cfg: cfg };
+}
+
+var TP_CAL_IMG_COLORS = {
+    done: { bg: '#dcfce7', fg: '#166534' }, plan: { bg: '#fef3c7', fg: '#92400e' }, prop: { bg: '#f1f5f9', fg: '#475569', dash: true },
+    cell: '#ffffff', cellHas: '#f0fdf4', weekend: '#f8fafc', out: '#f1f5f9', border: '#cbd5e1', text: '#0f172a', muted: '#64748b'
+};
+
+function _tpCalImgRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+}
+
+/** Dibuja el mes en un canvas nuevo y lo devuelve. */
+function tpCalendarImageCanvas(year, month) {
+    var model = tpCalendarImageModel(year, month);
+    var cfg = TP_CAL_IMG, C = TP_CAL_IMG_COLORS;
+    var probe = document.createElement('canvas').getContext('2d');
+    probe.font = cfg.font;
+    var L = tpCalendarImageLayout(model, function(t) { return probe.measureText(t).width; }, cfg);
+    var scale = 2;   // nítida al imprimir o al pegar en un correo
+    var cv = document.createElement('canvas');
+    cv.width = L.W * scale; cv.height = L.H * scale;
+    var ctx = cv.getContext('2d');
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, L.W, L.H);
+    ctx.textBaseline = 'top';
+    // Encabezado
+    ctx.fillStyle = C.text; ctx.font = 'bold 30px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('Plan de pruebas — ' + model.title, cfg.pad, cfg.pad);
+    ctx.fillStyle = C.muted; ctx.font = '16px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    var t = model.totals;
+    ctx.fillText(t.done + ' pruebas realizadas · ' + t.fams + ' familias probadas · ' + t.plan + ' planeadas pendientes · ' +
+                 t.prop + ' en propuesta' + (t.undated ? ' · ' + t.undated + ' sin fecha de prueba (no aparecen)' : ''), cfg.pad, cfg.pad + 42);
+    ctx.fillText('KIA EmLab · cada prueba en su día de prueba · generado ' + (typeof localToday === 'function' ? localToday() : ''), cfg.pad, cfg.pad + 64);
+    // Días de la semana
+    ctx.fillStyle = C.muted; ctx.font = 'bold 15px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].forEach(function(dn, i) {
+        var c = L.cols[i];
+        ctx.fillText(dn, c.x + c.w / 2 - ctx.measureText(dn).width / 2, cfg.pad + cfg.head + 6);
+    });
+    // Semanas
+    L.weeks.forEach(function(wk) {
+        wk.cells.forEach(function(cell, i) {
+            var c = L.cols[i];
+            ctx.fillStyle = !cell.inMonth ? C.out : cell.pills.some(function(p) { return p.kind === 'done'; }) ? C.cellHas : cell.weekend ? C.weekend : C.cell;
+            _tpCalImgRect(ctx, c.x, wk.y, c.w, wk.h, 8); ctx.fill();
+            ctx.strokeStyle = C.border; ctx.lineWidth = 1; ctx.setLineDash([]); ctx.stroke();
+            if (!cell.inMonth) return;
+            ctx.fillStyle = C.text; ctx.font = 'bold 16px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(String(cell.day), c.x + cfg.cellPad, wk.y + cfg.cellPad);
+            var y = wk.y + cfg.cellPad + cfg.dayH;
+            ctx.font = cfg.font;
+            cell.pills.forEach(function(p) {
+                var col = C[p.kind] || C.plan;
+                var ph = p.lines.length * cfg.lineH + 6;
+                _tpCalImgRect(ctx, c.x + cfg.cellPad - 2, y, c.w - 2 * cfg.cellPad + 4, ph, 5);
+                ctx.fillStyle = col.bg; ctx.fill();
+                if (col.dash) { ctx.setLineDash([4, 3]); ctx.strokeStyle = C.border; ctx.stroke(); ctx.setLineDash([]); }
+                ctx.fillStyle = col.fg;
+                p.lines.forEach(function(line, j) { ctx.fillText(line, c.x + cfg.cellPad + 2, y + 3 + j * cfg.lineH); });
+                y += ph + cfg.pillGap;
+            });
+        });
+    });
+    // Leyenda
+    var ly = L.H - cfg.pad - 24, lx = cfg.pad;
+    ctx.font = '15px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    [['done', 'Realizada (día de prueba) · VIN corto'], ['plan', 'Planeada, pendiente'], ['prop', 'En una propuesta sin aceptar']].forEach(function(it) {
+        var col = C[it[0]];
+        _tpCalImgRect(ctx, lx, ly, 22, 18, 4); ctx.fillStyle = col.bg; ctx.fill();
+        ctx.strokeStyle = C.border; ctx.setLineDash(col.dash ? [4, 3] : []); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = C.text; ctx.fillText(it[1], lx + 30, ly + 1);
+        lx += 30 + ctx.measureText(it[1]).width + 36;
+    });
+    return cv;
+}
+
+/** Descarga el mes que se ve en el calendario como PNG. */
+function tpCalendarImageExport() {
+    try {
+        var now = new Date();
+        var m = _tpCalendarMonth || { year: now.getFullYear(), month: now.getMonth() };
+        var cv = tpCalendarImageCanvas(m.year, m.month);
+        var name = 'plan-pruebas-' + m.year + '-' + String(m.month + 1).padStart(2, '0') + '.png';
+        cv.toBlob(function(blob) {
+            if (!blob) { showToast('No se pudo crear la imagen en este equipo.', 'error'); return; }
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            document.body.appendChild(a); a.click();
+            setTimeout(function() { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 1500);
+            showToast('🖼️ Imagen descargada: ' + name, 'success');
+        }, 'image/png');
+    } catch (e) {
+        console.error('tpCalendarImageExport:', e);
+        showToast('No se pudo crear la imagen: ' + e.message, 'error');
+    }
 }
 
 function tpCalendarDayDetail(dateKey) {
