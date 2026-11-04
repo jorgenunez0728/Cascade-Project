@@ -345,5 +345,41 @@ t('el selector muestra UNA fila por configuración sin rin, con sus rines', () =
        'dice qué distingue a las filas que quedan:');
 });
 
+console.log('\n== [3.31.0] El selector usa el catálogo de Cascade y busca por palabras ==');
+t('la fuente es el catálogo del Alta; el Modelo vacío de producción no le gana; lo solo-producción se cuenta', () => {
+    reset([]);
+    const row = (code, mod, my, eng, tx, body, tire) => ({ codigo_config_text: code, Modelo: mod, 'MODEL YEAR (VIN)': my,
+        TRANSMISSION: tx, 'ENVIRONMENT PACKAGE': '0', 'EMISSION REGULATION': 'PRE-EURO 7', 'DRIVE TYPE': 'LHD',
+        'ENGINE CAPACITY': eng, 'TIRE ASSY': tire, REGION: 'EUROPE', 'BODY TYPE': body, 'ENGINE PACKAGE': '0' });
+    sandbox.allConfigurations = [
+        row('MH-W16', 'CL4MH', '27 MODEL', '1600CC KAPPA PE', '6DCT', 'WGN', '205/55 R16'),
+        row('MH-W18', 'CL4MH', '27 MODEL', '1600CC KAPPA PE', '6DCT', 'WGN', '235/40 R18'),
+        row('CL4-R16', 'CL4', '26 MODEL', '1000cc KAPPA PE', '6MT', '5DR', '205/55 R16')
+    ];
+    S.planData = [cfg('MH-W16', { mod: '', my: '27 MODEL', eng: '1600CC KAPPA PE', tx: '6DCT', body: 'WGN', total: 4000 }),
+                  cfg('SOLO-PROD', { total: 100 })];
+    S._lastSave++; sandbox.tpInvalidateCache();
+    const src = sandbox.tpPickerSource();
+    eq(src.list.length, 3, 'las tres del catálogo:');
+    const mh = src.list.find(c => c.desc === 'MH-W16');
+    eq(mh.mod, 'CL4MH', 'manda el Modelo de Cascade:');
+    eq(mh.total, 4000, 'con el volumen de producción:');
+    eq(src.planOnly, 1, 'la que solo existe en producción se cuenta:');
+    const M = sandbox.tpPickerModel(src.list, {}, sandbox.TP_PICK_LEVELS);
+    eq(M.options.map(o => o.value).join(','), 'CL4,CL4MH', 'CL4MH aparece como Modelo:');
+});
+t('la búsqueda encuentra por pocas palabras, en cualquier orden, sin acentos', () => {
+    // El _uiFold real de app.js (el arnés no carga app.js).
+    const app = fs.readFileSync(__dirname + '/../js/app.js', 'utf8');
+    vm.runInContext(app.slice(app.indexOf('function _uiFold('), app.indexOf('\n}\n', app.indexOf('function _uiFold(')) + 3), sandbox);
+    const src = sandbox.tpPickerSource();
+    const find = q => src.list.filter(c => sandbox.tpSearchMatch(sandbox.tpPickerHay(c), q)).map(c => c.desc).sort().join(',');
+    eq(find('wgn cl4mh'), 'MH-W16,MH-W18');
+    eq(find('híbrido'), 'MH-W16,MH-W18');
+    eq(find('kappa 26'), 'CL4-R16');
+    eq(find('r18 hibrido'), 'MH-W18');
+    sandbox.allConfigurations = [];
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

@@ -7322,6 +7322,8 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .tp-wd-sum { font-size: var(--fs-sm); margin: var(--space-sm) 0 0; }
 .tp-wd-master { font-size: var(--fs-base); max-width: 100%; }
 .tp-armar-filters > summary, .tp-armar-sub > summary { cursor: pointer; font-size: var(--fs-sm); padding: var(--space-xs) 0; }
+.tp-pick-q { width: 100%; font-size: var(--fs-base); padding: var(--space-xs) var(--space-sm); min-height: var(--target-min, 32px);
+  border: 1px solid var(--tp-border); border-radius: var(--radius-md); margin-bottom: var(--space-xs); background: var(--surface); color: var(--tp-text); }
 .tp-pick-crumbs { display: flex; flex-wrap: wrap; gap: var(--space-2xs); align-items: center; margin-bottom: var(--space-xs); }
 .tp-pick-crumb { font-size: var(--fs-sm); padding: var(--space-2xs) var(--space-sm); border: 1px solid var(--info-text); border-radius: var(--radius-full);
     background: var(--info-bg); color: var(--info-text); cursor: pointer; }

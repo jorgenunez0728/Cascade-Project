@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.30.0';
+var APP_VERSION = '3.31.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,10 @@ var APP_VERSION = '3.30.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.31.0', date: '4 nov 2026', title: 'Elegir otra: el catálogo de Cascade y un buscador',
+      bullets: ['Armar la semana → Elegir otra (en cascada) ofrece exactamente las configuraciones que se pueden dar de alta en Cascade (el mismo catálogo del Alta, incluidas las dadas de alta a mano). Si el plan de producción trae una configuración con el Modelo vacío, como los híbridos CL4MH, se lee con el Modelo de Cascade.',
+                'Lo que solo existe en el plan de producción y no en el catálogo de Cascade no se puede dar de alta, así que no se ofrece; la pantalla dice cuántas son.',
+                'Buscador arriba del selector: pocas palabras, en cualquier orden y sin acentos (ej.: "cl4mh wgn", "hibrido r18", "kappa usa"). Se combina con lo elegido en la cascada.'] },
     { version: '3.30.0', date: '3 nov 2026', title: 'El rin no separa pruebas',
       bullets: ['Plan: las configuraciones que solo cambian de llanta son UNA para planear. Su REQ sale del volumen de todas juntas y una prueba con cualquier rin cuenta para todas; el pendiente lo lleva la de más volumen y las demás dicen que el REQ lo lleva otra llanta.',
                 'Armar la semana → Elegir otra (en cascada): ya no pregunta la llanta. Sale un renglón por configuración con sus rines (por ejemplo "rines R16, R17, R18"), y cuando quedan varios renglones con el mismo nombre se dice qué los distingue (por ejemplo LHD / RHD).',

@@ -4329,3 +4329,15 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
 - Selector: `tpPickerRows` / `tpPickerVaryFields` (PURAS). Dos renglones con el mismo nombre
   deben decir qué los distingue, nunca verse idénticos sin aviso.
 - CoP corporativo: `_tpTireCollapseSplit` junta las llantas antes de `copYearPlanSplit`.
+
+## 3.31.0 — El selector usa el catálogo de Cascade (`js/testplan.js`)
+
+- **`tpPickerSource()` es LA fuente de "Elegir otra"**: el catálogo del Alta (`allConfigurations`,
+  que ya incluye las manuales), con la fila de `planData` encimada por `desc` (volumen, pausa) y
+  los campos de identidad del CATÁLOGO (TP_TIRE_FREE_FIELDS + tire): el CSV de producción puede
+  traer `Modelo` vacío (CL4MH). Lo solo-producción no se ofrece y se cuenta (`planOnly`). Matiza
+  2.0.0 para este selector: `tpConfigCatalog` sigue siendo el universo de las demás rutas manuales.
+- **El buscador usa `tpSearchMatch` sobre `tpPickerHay(c)`**; un sinónimo nuevo (como "hibrido")
+  va en `tpPickerHay`. Un campo de texto junto a un bloque que se repinta con `innerHTML` va FUERA
+  de ese bloque (`#tp-pick-q`), o pierde el foco en cada tecla.
+
