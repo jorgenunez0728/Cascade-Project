@@ -143,6 +143,28 @@ const frameText = page => page.evaluate(() => document.querySelector('#cop-rep i
         if (SHOTS) { await page.evaluate(() => tpYearSummarySet('scope', 'req')); await page.waitForTimeout(400);
                      await page.screenshot({ path: SHOTS + '/resumen-' + vp.width + '.png', fullPage: true }); }
         await page.evaluate(() => tpYearSummarySet('scope', 'req'));
+        // [3.33.0] En inglés: mismos números, otros textos; el botón de idioma se queda en la pantalla.
+        await page.evaluate(() => tpYearSummarySet('dim', 'fam'));
+        await page.waitForTimeout(300);
+        await page.locator('#tp-content .ys-chip', { hasText: 'English' }).click();
+        await page.waitForTimeout(500);
+        const en = await page.evaluate(() => {
+            const c = document.querySelector('#tp-content');
+            return { title: (c.querySelector('.ys .tp-card-title') || {}).innerText || '',
+                     heads: Array.from(c.querySelectorAll('.ys-table:not(.ys-score) thead th')).map(x => x.textContent.trim()),
+                     metrics: Array.from(c.querySelectorAll('.ys-metrics .tp-metric')).map(m => m.innerText.replace(/\s+/g, ' ')),
+                     first: Array.from(c.querySelectorAll('.ys-table:not(.ys-score) tbody tr')).map(r => r.innerText.replace(/\s+/g, ' ').trim())[0] || '',
+                     score: (c.querySelectorAll('.ys .tp-card-title')[1] || {}).innerText || '',
+                     month0: (c.querySelector('.ys-m') || {}).textContent || '' };
+        });
+        ok('en inglés: título, encabezados y métricas', /Year summary/.test(en.title) && en.heads.join('|') === 'Family|Tested|By month|Scheduled|By Dec 31' &&
+           en.metrics.some(m => /^6 Tested in/i.test(m)) && en.metrics.some(m => /^2 Scheduled through Dec 31/i.test(m)), JSON.stringify(en));
+        ok('en inglés: los mismos números y enero es J', /^CL4 .*WGN 5 .* 2 \+1 7$/.test(en.first) && en.month0 === 'J', JSON.stringify(en.first));
+        ok('en inglés: la prioridad también', /Priority: today and on Dec 31/.test(en.score), en.score);
+        if (SHOTS) await page.screenshot({ path: SHOTS + '/resumen-en-' + vp.width + '.png', fullPage: true });
+        await page.locator('#tp-content .ys-chip', { hasText: 'Español' }).click();
+        await page.waitForTimeout(400);
+        ok('de regreso en español', await page.evaluate(() => /Resumen del año/.test(document.querySelector('#tp-content .ys .tp-card-title').innerText)));
         ok('sin errores de página', !errores.length, errores.join(' | '));
         await context.close();
     }

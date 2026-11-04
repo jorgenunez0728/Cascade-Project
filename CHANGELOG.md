@@ -20,6 +20,22 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.33.0 — Resumen del año en inglés (2026-11-04)
+
+### Nuevo
+- **Plan → 🧮 Resumen del año: botón Idioma (Español / English).** En inglés cambian el título,
+  la explicación, los botones de agrupar y de qué pruebas, los indicadores, los encabezados de la
+  tabla, la tira de meses (J F M A…), la leyenda y la tarjeta de prioridad con el nombre de cada
+  factor. Los números y los nombres de familia son los mismos en los dos idiomas.
+- La elección se guarda en este equipo y no se sincroniza: no le cambia la pantalla a nadie más.
+
+### Para desarrollo
+- `YS_TXT` (`es` / `en`, mismas claves) y `tpYearText(lang, clave, marcas)` (PURA) son los textos
+  de la pantalla; el idioma vive en `uiPref('yearSum').lang`. Los nombres de los factores del score
+  en inglés van en `YS_TXT.en.parts`, por la clave `k` de `tpScoreCompute`.
+- La explicación al pasar el cursor sobre cada factor (`why`) sigue en español: la arma
+  `tpScoreCompute`.
+
 ## 3.32.1 — Resumen del año: una familia es una familia (2026-11-04)
 
 ### Cambió

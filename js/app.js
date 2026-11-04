@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.32.1';
+var APP_VERSION = '3.33.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,9 @@ var APP_VERSION = '3.32.1';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.33.0', date: '4 nov 2026', title: 'Resumen del año en inglés',
+      bullets: ['Plan → Resumen del año: botón Idioma (Español / English). En inglés cambian títulos, encabezados, indicadores, la tira de meses (J F M A…), la leyenda y la tarjeta de prioridad con sus factores. Los números son los mismos.',
+                'La elección se queda en este equipo; no le cambia la pantalla a nadie más.'] },
     { version: '3.32.1', date: '4 nov 2026', title: 'Resumen del año: una familia es una familia',
       bullets: ['Plan → Resumen del año, por Familia: donde el laboratorio junta años modelo (Europa PRE-EURO 7 / EURO 7 y Middle East) MY26 y MY27 salen en un solo renglón ("MY26+27"), y el CL4MH suma 5DR y WGN en la misma familia, como en la tabla de prioridad.',
                 'USA, México y Europa EURO-5 siguen por año modelo, igual que en el score.'] },

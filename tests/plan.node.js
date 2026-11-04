@@ -868,5 +868,21 @@ t('Resumen del año: MY26+27 juntos y CL4MH 5DR+WGN en una sola familia; USA sig
     if (!hadShared) delete sandbox.copBodySharedFor;
 });
 
+console.log('\n== [3.33.0] Resumen del año en inglés ==');
+t('YS_TXT: español e inglés tienen las mismas claves, y tpYearText reemplaza las marcas', () => {
+    const X = sandbox.YS_TXT;
+    const keys = o => Object.keys(o).sort().join();
+    eq(keys(X.en), keys(X.es), 'claves de nivel superior:');
+    ['dims', 'scopes'].forEach(k => eq(keys(X.en[k]), keys(X.es[k]), k + ':'));
+    eq(X.en.months.length + '/' + X.en.monthsLong.length, '12/12');
+    eq(sandbox.tpYearText('en', 'mDone', { y: 2026 }), 'Tested in 2026');
+    eq(sandbox.tpYearText('es', 'mDone', { y: 2026 }), 'Probadas en 2026');
+    eq(sandbox.tpYearText('xx', 'hSched'), 'Agendadas', 'idioma desconocido = español:');
+    eq(X.en.months[0], 'J'); eq(X.es.months[0], 'E');
+    // Cada parte del score tiene su nombre en inglés.
+    const ks = ['reg', 'act', 'fam', 'pend', 'year', 'days', 'vol', 'new', 'audit', 'deadline', 'aging'];
+    eq(ks.filter(k => !X.en.parts[k]).join(), '', 'partes sin traducir:');
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);
