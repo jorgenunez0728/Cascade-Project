@@ -28,7 +28,15 @@ var YS_MONTHS_LONG = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'ju
 /** Cuántas familias se comparan en la prioridad. */
 var YS_SCORE_TOP = 15;
 
-/** El valor de una prueba en un campo. PURA. x = {cfg, famLabel}. */
+/**
+ * El valor de una prueba en un campo. PURA. x = {cfg, famKey, famLabel}.
+ * [3.32.1] La familia es la del SCORE (tpScoreFamKey / tpScoreFamLabel): donde el laboratorio
+ * junta años modelo (MY26+27) y carrocerías del WVTA (CL4MH 5DR + WGN), aquí también.
+ */
+function tpYearDimKey(x, dim) {
+    if (dim === 'fam' && x && x.famKey) return 'fk:' + x.famKey;
+    return tpYearDimValue(x, dim);
+}
 function tpYearDimValue(x, dim) {
     if (dim === 'fam') return String((x && x.famLabel) || '').trim() || '(sin familia)';
     var v = String((x && x.cfg && x.cfg[dim]) == null ? '' : x.cfg[dim]).trim();
@@ -38,8 +46,8 @@ function tpYearDimValue(x, dim) {
 /**
  * LA definición del resumen del año. PURA.
  * src = {year, dim, scope:'req'|'cop'|'all', proposals,
- *        tests:[{date, cfg, famLabel, req, cop}]            ← lo probado en el año
- *        planned:[{date, cfg, famLabel, req, cop, proposal}] ← lo agendado hasta el 31 dic
+ *        tests:[{date, cfg, famKey, famLabel, req, cop}]            ← lo probado en el año
+ *        planned:[{date, cfg, famKey, famLabel, req, cop, proposal}] ← lo agendado hasta el 31 dic
  *        corr:{sched, prop}}
  * Agrupa por el campo, de mayor a menor por lo probado. "Proyección" = probadas + agendadas
  * (+ propuestas si `proposals`). Lo que no cumple el alcance elegido no se cuenta.
@@ -50,8 +58,8 @@ function tpYearSummaryModel(src) {
     var pass = function(x) { return scope === 'all' || (scope === 'cop' ? !!x.cop : !!x.req); };
     var groups = {}, T = { done: 0, sched: 0, prop: 0, proj: 0, groups: 0 };
     var g = function(x) {
-        var k = tpYearDimValue(x, dim);
-        return groups[k] || (groups[k] = { key: k, label: k, done: 0, sched: 0, prop: 0, months: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] });
+        var k = tpYearDimKey(x, dim);
+        return groups[k] || (groups[k] = { key: k, label: tpYearDimValue(x, dim), done: 0, sched: 0, prop: 0, months: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] });
     };
     (src.tests || []).forEach(function(x) {
         if (!x || !pass(x)) return;
@@ -130,6 +138,23 @@ function _ysCfgFromFamKey(fk) {
     var p = String(fk || '').split('|');
     return { mod: p[0] || '', eng: p[1] || '', tx: p[2] || '', my: p[3] || '', reg: p[4] || '', ep: p[5] || '', engpkg: p[6] || '', body: p[7] || '', rgn: '' };
 }
+/** [3.32.1] La familia del score de una configuración: {famKey, famLabel}. */
+function _ysFam(cfg, fallback) {
+    if (!cfg) return { famKey: '', famLabel: fallback || '' };
+    var key = typeof tpScoreFamKey === 'function' ? tpScoreFamKey(cfg) : tpFamilyKeyForCfg(cfg);
+    var label = typeof tpScoreFamLabel === 'function' ? tpScoreFamLabel(cfg) : tpFamilyShortLabel(cfg);
+    return { famKey: key, famLabel: label || fallback || '' };
+}
+/** La configuración de una prueba del calendario: catálogo, su vehículo, o la clave de familia. */
+function _ysTestCfg(t) {
+    var cfg = tpConfigByDesc(t.configCode);
+    if (cfg) return cfg;
+    if (t.vehicleId != null && typeof db !== 'undefined' && db && Array.isArray(db.vehicles) && typeof _tpCalVehicleCfg === 'function') {
+        var v = db.vehicles.find(function(x) { return x && String(x.id) === String(t.vehicleId); });
+        if (v) { cfg = _tpCalVehicleCfg(v); if (cfg && cfg.mod) return cfg; }
+    }
+    return _ysCfgFromFamKey(t.familyKey);
+}
 function _ysIsCop(purpose, cfg) {
     try { return typeof copPurposeCounts === 'function' && copPurposeCounts(purpose) && typeof copInScope === 'function' && copInScope(cfg).ok; }
     catch (e) { return false; }
@@ -140,8 +165,8 @@ function _tpYearSummaryInput(year) {
     var today = localToday(), from = year + '-01-01', until = year + '-12-31';
     var cal = tpCalendarTests(from, today < until ? today : until, { datedOnly: true });
     var tests = cal.all.map(function(t) {
-        var cfg = tpConfigByDesc(t.configCode) || _ysCfgFromFamKey(t.familyKey);
-        return { date: t.date, cfg: cfg, famLabel: t.familyShort || tpFamilyShortLabel(cfg),
+        var cfg = _ysTestCfg(t), f = _ysFam(cfg, t.familyShort);
+        return { date: t.date, cfg: cfg, famKey: f.famKey, famLabel: f.famLabel,
                  req: tpTestedCountsForReq({ purpose: t.purpose, vehicleId: t.vehicleId, source: t.source }),
                  cop: _ysIsCop(t.purpose, cfg) };
     });
@@ -157,7 +182,8 @@ function _tpYearSummaryInput(year) {
                 }
                 var cfg = tpConfigByDesc(it.desc) || it;
                 var pu = it.actualPurpose || it.purpose || tpPurposeForCfg(cfg);
-                planned.push({ date: r.date, cfg: cfg, famLabel: tpFamilyShortLabel(cfg), proposal: r.proposal,
+                var f = _ysFam(cfg);
+                planned.push({ date: r.date, cfg: cfg, famKey: f.famKey, famLabel: f.famLabel, proposal: r.proposal,
                                req: tpPurposeCountsForReq(pu), cop: _ysIsCop(pu, cfg) });
             });
         });

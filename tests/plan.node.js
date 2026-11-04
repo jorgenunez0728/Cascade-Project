@@ -842,5 +842,31 @@ t('tpScoreFamLabel: Europa PRE-EURO 7 junta MY26+27; USA sigue por año modelo',
     eq(/MY26\b/.test(sandbox.tpScoreFamLabel(S.planData[2])) && !/\+/.test(sandbox.tpScoreFamLabel(S.planData[2])), true);
 });
 
+console.log('\n== [3.32.1] Resumen del año: la familia es la del score ==');
+t('Resumen del año: MY26+27 juntos y CL4MH 5DR+WGN en una sola familia; USA sigue por MY', () => {
+    reset([]);
+    const hadShared = typeof sandbox.copBodySharedFor === 'function';
+    if (!hadShared) sandbox.copBodySharedFor = m => String(m || '').toUpperCase() === 'CL4MH';
+    const eu = { mod: 'CL4', rgn: 'EUROPE', reg: 'PRE-EURO 7', eng: '1.0', tx: '6MT', drv: 'LHD', body: 'WGN', ep: '', engpkg: '', tire: '-', total: 100, hist: 0, m: [] };
+    const hy = Object.assign({}, eu, { mod: 'CL4MH', ep: 'MILD HEV', body: '5DR' });
+    S.planData = [Object.assign({ desc: 'E26', my: '26 MODEL' }, eu), Object.assign({ desc: 'E27', my: '27 MODEL' }, eu),
+                  Object.assign({ desc: 'H5', my: '27 MODEL' }, hy), Object.assign({ desc: 'HW', my: '27 MODEL' }, hy, { body: 'WGN' }),
+                  Object.assign({ desc: 'U26', my: '26 MODEL' }, eu, { rgn: 'USA', reg: 'SULEV 30' }),
+                  Object.assign({ desc: 'U27', my: '27 MODEL' }, eu, { rgn: 'USA', reg: 'SULEV 30' })];
+    const x = (cfg, o) => Object.assign({ date: '2026-03-01', cfg, req: true, cop: false }, sandbox._ysFam(cfg), o || {});
+    const P = S.planData;
+    const tests = [x(P[0]), x(P[1]), x(P[2]), x(P[3]), x(P[3]), x(P[4]), x(P[5])];
+    const M = sandbox.tpYearSummaryModel({ year: 2026, dim: 'fam', scope: 'req', tests, planned: [x(P[2], { proposal: false })] });
+    const by = {}; M.rows.forEach(r => { by[r.label] = r.done + '/' + r.sched; });
+    eq(M.rows.length, 4, JSON.stringify(by));
+    const hyRow = M.rows.find(r => /CL4MH/.test(r.label));
+    eq(hyRow.done + '/' + hyRow.sched, '3/1', 'CL4MH 5DR + WGN:');
+    eq(/5DR|WGN/.test(hyRow.label), false, hyRow.label);
+    const euRow = M.rows.find(r => /^CL4 /.test(r.label) && /MY26\+27/.test(r.label));
+    eq(euRow && euRow.done, 2, 'CL4 Europa MY26+27:');
+    eq(M.rows.filter(r => /SULEV/.test(r.label)).length, 2, 'USA sigue por año modelo:');
+    if (!hadShared) delete sandbox.copBodySharedFor;
+});
+
 console.log('\n' + pass + ' pasaron, ' + fail + ' fallaron\n');
 process.exit(fail ? 1 : 0);

@@ -20,6 +20,23 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.32.1 — Resumen del año: una familia es una familia (2026-11-04)
+
+### Cambió
+- **Plan → 🧮 Resumen del año, agrupado por Familia**: usa la misma familia que la tabla de
+  prioridad. Donde el laboratorio junta años modelo (Europa PRE-EURO 7 / EURO 7 y Middle East),
+  MY26 y MY27 salen en un solo renglón ("MY26+27"); el CL4MH suma 5DR y WGN en una sola familia
+  (la familia del WVTA cubre las dos carrocerías). USA, México y Europa EURO-5 siguen por año
+  modelo, igual que en el score.
+
+### Para desarrollo
+- La dimensión `fam` del resumen agrupa por `tpScoreFamKey` (`tpYearDimKey`) y se nombra con
+  `tpScoreFamLabel` (`_ysFam`). Agrupar por la clave y no por el texto evita que dos familias se
+  junten o se separen por cómo se escribe el nombre.
+- `_ysTestCfg(t)`: la configuración de una prueba sale del catálogo, luego de su vehículo
+  (`_tpCalVehicleCfg`) y solo al final de la clave de familia, que no trae región y por eso no
+  junta años modelo.
+
 ## 3.32.0 — Calendario: nombres completos e imagen del mes (2026-11-04)
 
 ### Nuevo
