@@ -4352,3 +4352,11 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
   usan la misma regla. Las pastillas del calendario se parten en renglones (`white-space: normal`):
   no volver a `nowrap` + `ellipsis`, que cortaba el nombre de la familia.
 
+## 3.32.1 — Resumen del año por familia del score (`js/resumen.js`)
+
+- **La dimensión Familia del Resumen del año es la familia del SCORE**: agrupa por
+  `tpScoreFamKey` (`tpYearDimKey`) y nombra con `tpScoreFamLabel` (`_ysFam`). Toda pantalla que
+  muestre familias para que el laboratorio decida usa la del score (regla de 3.29.2), y agrupa
+  por la CLAVE, nunca por el texto del nombre.
+- `_ysTestCfg(t)` resuelve la configuración de una prueba: catálogo → su vehículo → clave de
+  familia. La clave no trae región: con ella sola `tpScoreMergesMy` da `false` y los MY no se juntan.

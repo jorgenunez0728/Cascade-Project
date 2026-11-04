@@ -10587,10 +10587,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202611042307';
+var APP_BUILD = '202611042318';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '4706090de6e87b00115eaa9097653a0884740180';
+var APP_COMMIT = '91c708585147980dcc76816b6ff336710a126507';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10598,7 +10598,7 @@ var APP_COMMIT = '4706090de6e87b00115eaa9097653a0884740180';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.32.0';
+var APP_VERSION = '3.32.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10606,6 +10606,9 @@ var APP_VERSION = '3.32.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.32.1', date: '4 nov 2026', title: 'Resumen del año: una familia es una familia',
+      bullets: ['Plan → Resumen del año, por Familia: donde el laboratorio junta años modelo (Europa PRE-EURO 7 / EURO 7 y Middle East) MY26 y MY27 salen en un solo renglón ("MY26+27"), y el CL4MH suma 5DR y WGN en la misma familia, como en la tabla de prioridad.',
+                'USA, México y Europa EURO-5 siguen por año modelo, igual que en el score.'] },
     { version: '3.32.0', date: '4 nov 2026', title: 'Calendario: nombres completos e imagen del mes',
       bullets: ['Plan → Calendario: los nombres de familia ya no se cortan; si no caben se parten en dos renglones. Se ven hasta 6 pruebas por día (antes 3).',
                 'Si el mes no tiene nada en sábado ni domingo, esas dos columnas se angostan y el ancho se lo llevan los días hábiles. Si algún fin de semana tiene una prueba, vuelven a su tamaño.',
@@ -11878,14 +11881,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202611042307' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202611042318' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202611042307' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202611042318' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11901,7 +11904,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202611042307' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202611042318' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -59566,7 +59569,15 @@ var YS_MONTHS_LONG = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'ju
 /** Cuántas familias se comparan en la prioridad. */
 var YS_SCORE_TOP = 15;
 
-/** El valor de una prueba en un campo. PURA. x = {cfg, famLabel}. */
+/**
+ * El valor de una prueba en un campo. PURA. x = {cfg, famKey, famLabel}.
+ * [3.32.1] La familia es la del SCORE (tpScoreFamKey / tpScoreFamLabel): donde el laboratorio
+ * junta años modelo (MY26+27) y carrocerías del WVTA (CL4MH 5DR + WGN), aquí también.
+ */
+function tpYearDimKey(x, dim) {
+    if (dim === 'fam' && x && x.famKey) return 'fk:' + x.famKey;
+    return tpYearDimValue(x, dim);
+}
 function tpYearDimValue(x, dim) {
     if (dim === 'fam') return String((x && x.famLabel) || '').trim() || '(sin familia)';
     var v = String((x && x.cfg && x.cfg[dim]) == null ? '' : x.cfg[dim]).trim();
@@ -59576,8 +59587,8 @@ function tpYearDimValue(x, dim) {
 /**
  * LA definición del resumen del año. PURA.
  * src = {year, dim, scope:'req'|'cop'|'all', proposals,
- *        tests:[{date, cfg, famLabel, req, cop}]            ← lo probado en el año
- *        planned:[{date, cfg, famLabel, req, cop, proposal}] ← lo agendado hasta el 31 dic
+ *        tests:[{date, cfg, famKey, famLabel, req, cop}]            ← lo probado en el año
+ *        planned:[{date, cfg, famKey, famLabel, req, cop, proposal}] ← lo agendado hasta el 31 dic
  *        corr:{sched, prop}}
  * Agrupa por el campo, de mayor a menor por lo probado. "Proyección" = probadas + agendadas
  * (+ propuestas si `proposals`). Lo que no cumple el alcance elegido no se cuenta.
@@ -59588,8 +59599,8 @@ function tpYearSummaryModel(src) {
     var pass = function(x) { return scope === 'all' || (scope === 'cop' ? !!x.cop : !!x.req); };
     var groups = {}, T = { done: 0, sched: 0, prop: 0, proj: 0, groups: 0 };
     var g = function(x) {
-        var k = tpYearDimValue(x, dim);
-        return groups[k] || (groups[k] = { key: k, label: k, done: 0, sched: 0, prop: 0, months: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] });
+        var k = tpYearDimKey(x, dim);
+        return groups[k] || (groups[k] = { key: k, label: tpYearDimValue(x, dim), done: 0, sched: 0, prop: 0, months: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] });
     };
     (src.tests || []).forEach(function(x) {
         if (!x || !pass(x)) return;
@@ -59668,6 +59679,23 @@ function _ysCfgFromFamKey(fk) {
     var p = String(fk || '').split('|');
     return { mod: p[0] || '', eng: p[1] || '', tx: p[2] || '', my: p[3] || '', reg: p[4] || '', ep: p[5] || '', engpkg: p[6] || '', body: p[7] || '', rgn: '' };
 }
+/** [3.32.1] La familia del score de una configuración: {famKey, famLabel}. */
+function _ysFam(cfg, fallback) {
+    if (!cfg) return { famKey: '', famLabel: fallback || '' };
+    var key = typeof tpScoreFamKey === 'function' ? tpScoreFamKey(cfg) : tpFamilyKeyForCfg(cfg);
+    var label = typeof tpScoreFamLabel === 'function' ? tpScoreFamLabel(cfg) : tpFamilyShortLabel(cfg);
+    return { famKey: key, famLabel: label || fallback || '' };
+}
+/** La configuración de una prueba del calendario: catálogo, su vehículo, o la clave de familia. */
+function _ysTestCfg(t) {
+    var cfg = tpConfigByDesc(t.configCode);
+    if (cfg) return cfg;
+    if (t.vehicleId != null && typeof db !== 'undefined' && db && Array.isArray(db.vehicles) && typeof _tpCalVehicleCfg === 'function') {
+        var v = db.vehicles.find(function(x) { return x && String(x.id) === String(t.vehicleId); });
+        if (v) { cfg = _tpCalVehicleCfg(v); if (cfg && cfg.mod) return cfg; }
+    }
+    return _ysCfgFromFamKey(t.familyKey);
+}
 function _ysIsCop(purpose, cfg) {
     try { return typeof copPurposeCounts === 'function' && copPurposeCounts(purpose) && typeof copInScope === 'function' && copInScope(cfg).ok; }
     catch (e) { return false; }
@@ -59678,8 +59706,8 @@ function _tpYearSummaryInput(year) {
     var today = localToday(), from = year + '-01-01', until = year + '-12-31';
     var cal = tpCalendarTests(from, today < until ? today : until, { datedOnly: true });
     var tests = cal.all.map(function(t) {
-        var cfg = tpConfigByDesc(t.configCode) || _ysCfgFromFamKey(t.familyKey);
-        return { date: t.date, cfg: cfg, famLabel: t.familyShort || tpFamilyShortLabel(cfg),
+        var cfg = _ysTestCfg(t), f = _ysFam(cfg, t.familyShort);
+        return { date: t.date, cfg: cfg, famKey: f.famKey, famLabel: f.famLabel,
                  req: tpTestedCountsForReq({ purpose: t.purpose, vehicleId: t.vehicleId, source: t.source }),
                  cop: _ysIsCop(t.purpose, cfg) };
     });
@@ -59695,7 +59723,8 @@ function _tpYearSummaryInput(year) {
                 }
                 var cfg = tpConfigByDesc(it.desc) || it;
                 var pu = it.actualPurpose || it.purpose || tpPurposeForCfg(cfg);
-                planned.push({ date: r.date, cfg: cfg, famLabel: tpFamilyShortLabel(cfg), proposal: r.proposal,
+                var f = _ysFam(cfg);
+                planned.push({ date: r.date, cfg: cfg, famKey: f.famKey, famLabel: f.famLabel, proposal: r.proposal,
                                req: tpPurposeCountsForReq(pu), cop: _ysIsCop(pu, cfg) });
             });
         });
@@ -73782,7 +73811,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202611042307' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202611042318' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -94175,7 +94204,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":10121,"mods":[[10124,"js/app.js",20486],[20490,"js/uiflow.js",20825],[20829,"js/cop15.js",32355],[32359,"js/inventory.js",40363],[40367,"js/cuarto.js",42497],[42501,"js/sitio.js",44684],[44688,"js/conslist.js",45296],[45300,"js/testplan.js",58903],[58907,"js/bloques.js",59535],[59539,"js/resumen.js",59846],[59850,"js/panel.js",65237],[65241,"js/projects.js",67530],[67534,"js/auth.js",68614],[68618,"js/signatures.js",68980],[68984,"js/firebase-sync.js",77622],[77626,"js/cop_validator.js",82574],[82578,"js/copreport.js",84728],[84732,"js/cophq.js",85542],[85546,"js/homolog.js",87443],[87447,"js/vets.js",89246],[89250,"js/historico.js",90164],[90168,"js/review.js",90637],[90641,"js/opcards.js",91090],[91094,"js/handoff.js",91373],[91377,"js/ficha.js",91878],[91882,"js/relevo.js",92262],[92266,"js/momentos.js",92403],[92407,"js/normas.js",92815],[92819,"js/digest.js",93747],[93751,"js/xlsxw.js",94131],[94135,"js/bugreport.js",95281]]};
+var BUG_LINE_MAP = {"tag":10121,"mods":[[10124,"js/app.js",20489],[20493,"js/uiflow.js",20828],[20832,"js/cop15.js",32358],[32362,"js/inventory.js",40366],[40370,"js/cuarto.js",42500],[42504,"js/sitio.js",44687],[44691,"js/conslist.js",45299],[45303,"js/testplan.js",58906],[58910,"js/bloques.js",59538],[59542,"js/resumen.js",59875],[59879,"js/panel.js",65266],[65270,"js/projects.js",67559],[67563,"js/auth.js",68643],[68647,"js/signatures.js",69009],[69013,"js/firebase-sync.js",77651],[77655,"js/cop_validator.js",82603],[82607,"js/copreport.js",84757],[84761,"js/cophq.js",85571],[85575,"js/homolog.js",87472],[87476,"js/vets.js",89275],[89279,"js/historico.js",90193],[90197,"js/review.js",90666],[90670,"js/opcards.js",91119],[91123,"js/handoff.js",91402],[91406,"js/ficha.js",91907],[91911,"js/relevo.js",92291],[92295,"js/momentos.js",92432],[92436,"js/normas.js",92844],[92848,"js/digest.js",93776],[93780,"js/xlsxw.js",94160],[94164,"js/bugreport.js",95310]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */
