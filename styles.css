@@ -5579,6 +5579,10 @@ button.tp-blk:hover { border-color: var(--border-strong); }
 .ui-tabgroup:hover { color: var(--text); }
 .ui-tabgroup.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
 .tp-tab.ui-tg-hidden { display: none !important; }
+/* [3.35.0] Una tabla que se desplaza de lado desvanece el borde hacia donde hay más. */
+.u-xscroll[data-more="right"] { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+.u-xscroll[data-more="left"]  { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
+.u-xscroll[data-more="both"]  { -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
 /* [3.34.0] Pestañas fusionadas: la sección oculta sigue en el DOM (la lee el lanzador). */
 .tp-tab.ui-merged-hidden { display: none !important; }
 .ui-subtabs { display: flex; gap: var(--space-xs); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 0 var(--space-md); padding: 0 var(--space-2xs); }

@@ -6020,6 +6020,10 @@ button.tp-blk:hover { border-color: var(--border-strong); }
 .ui-tabgroup:hover { color: var(--text); }
 .ui-tabgroup.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
 .tp-tab.ui-tg-hidden { display: none !important; }
+/* [3.35.0] Una tabla que se desplaza de lado desvanece el borde hacia donde hay más. */
+.u-xscroll[data-more="right"] { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+.u-xscroll[data-more="left"]  { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
+.u-xscroll[data-more="both"]  { -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
 /* [3.34.0] Pestañas fusionadas: la sección oculta sigue en el DOM (la lee el lanzador). */
 .tp-tab.ui-merged-hidden { display: none !important; }
 .ui-subtabs { display: flex; gap: var(--space-xs); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 0 var(--space-md); padding: 0 var(--space-2xs); }
@@ -10596,10 +10600,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202611102215';
+var APP_BUILD = '202611102224';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = 'debab88423ef978163e5fab2496628839e4b3528';
+var APP_COMMIT = '1ec097b7c1691b42c5b12c6516d2d66cbf309945';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10607,7 +10611,7 @@ var APP_COMMIT = 'debab88423ef978163e5fab2496628839e4b3528';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.34.0';
+var APP_VERSION = '3.35.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10615,6 +10619,10 @@ var APP_VERSION = '3.34.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.35.0', date: '10 nov 2026', title: 'Tablas que se leen en el teléfono',
+      bullets: ['CoP → Validador: el Análisis estadístico (8 columnas) sale como una tarjeta por contaminante en el teléfono. En computadora sigue siendo tabla.',
+                'Una tabla que no cabe y se desliza de lado (Plan Maestro de 52 semanas, el Gantt del CoP y de Proyectos, la matriz de roles) ahora desvanece el borde hacia donde hay más. Antes se cortaba en seco.',
+                'Se revisaron todas las pestañas de Plan, Consumibles y Datos a ancho de teléfono: ninguna desborda la página.'] },
     { version: '3.34.0', date: '10 nov 2026', title: 'Menos pestañas en Consumibles y en Datos',
       bullets: ['Consumibles pasa de 12 pestañas a 8 y ya no tiene fila de grupos: Resumen (con Predicción y Gráficas adentro), Cuarto, Captura, Existencias (Gases, Combustible y Trazabilidad), Equipos, Mantenimiento, Reporte y Tipos y zonas.',
                 'Datos pasa de 17 a 11: Ejecutivo, Tiempos e Inteligencia viven dentro de Reportes; Normas dentro de Regulaciones; Archivos y Fallas reportadas dentro de Sistema.',
@@ -11898,14 +11906,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202611102215' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202611102224' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202611102215' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202611102224' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11921,7 +11929,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202611102215' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202611102224' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -18095,6 +18103,7 @@ function uiEnhance(root) {
     try { uiChipsEnhance(root); } catch (e) { void 0; }
     try { uiNumEnhance(root); } catch (e) { void 0; }
     try { uiTableCards(root); } catch (e) { void 0; }
+    try { uiScrollHints(root); } catch (e) { void 0; }
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -18454,6 +18463,7 @@ function uiEnhanceObserve() {
             if (!inp._num) { try { _uiNumAttach(inp); } catch (e) { void 0; } }
         });
         try { uiTableCards(document); } catch (e) {}
+        try { uiScrollHints(document); } catch (e) {}   // [3.35.0]
     };
     window._uiEnhanceMO = new MutationObserver(function(muts) {
         if (pending) return;
@@ -18528,6 +18538,46 @@ function uiTableCards(root) {
                 });
             });
         });
+    });
+}
+
+/**
+ * [3.35.0] Una tabla que no cabe y se desplaza de lado (matrices: Plan Maestro de 52
+ * semanas, Gantt, matriz de roles) lo DICE: el borde hacia donde hay más se desvanece.
+ * Antes la tabla se cortaba en seco y nada indicaba que seguía.
+ *   · Solo marca contenedores que YA se desplazan (overflow-x auto/scroll): no cambia el
+ *     acomodo de nada.
+ *   · El estado va en `data-more` (left | right | both | none) y lo pinta el CSS con una
+ *     máscara, así funciona aunque las celdas tengan fondo.
+ *   · Una tabla `u-cards` no entra: bajo 640 px ya es tarjetas.
+ */
+function uiScrollHintState(scrollLeft, clientWidth, scrollWidth) {   // PURA
+    if (!(scrollWidth - clientWidth > 2)) return 'none';
+    var l = scrollLeft > 2, r = scrollLeft + clientWidth < scrollWidth - 2;
+    return l && r ? 'both' : r ? 'right' : l ? 'left' : 'none';
+}
+function _uiScrollHintSync(el) {
+    var st = uiScrollHintState(el.scrollLeft, el.clientWidth, el.scrollWidth);
+    if (el.getAttribute('data-more') !== st) el.setAttribute('data-more', st);
+}
+function uiScrollHints(root) {
+    if (!root || !root.querySelectorAll || typeof getComputedStyle !== 'function') return;
+    [].forEach.call(root.querySelectorAll('table'), function(t) {
+        if (t._xsChecked) return;
+        t._xsChecked = true;
+        var el = t.parentElement, hops = 0;
+        while (el && el !== document.body && hops < 4) {
+            var o = getComputedStyle(el).overflowX;
+            if (o === 'auto' || o === 'scroll') break;
+            el = el.parentElement; hops++;
+        }
+        if (!el || el === document.body || hops >= 4 || el._xs) return;
+        el._xs = true;
+        el.classList.add('u-xscroll');
+        el.addEventListener('scroll', function() { _uiScrollHintSync(el); }, { passive: true });
+        // Una pestaña oculta mide 0: al mostrarse (o al girar el teléfono) se vuelve a medir.
+        if (typeof ResizeObserver !== 'undefined') { try { new ResizeObserver(function() { _uiScrollHintSync(el); }).observe(el); } catch (e) {} }
+        _uiScrollHintSync(el);
     });
 }
 
@@ -74028,7 +74078,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202611102215' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202611102224' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -80480,7 +80530,9 @@ function copBuildStatsHTML() {
     }
 
     html += '<div style="overflow-x:auto;">';
-    html += '<table style="border-collapse:collapse;width:100%;min-width:500px;">';
+    // [3.35.0] 8 columnas no caben en un teléfono (medía 890 px en 349): bajo 640 px cada
+    // contaminante es una tarjeta con sus valores en dos columnas.
+    html += '<table class="u-cards u-cards-grid" style="border-collapse:collapse;width:100%;min-width:500px;">';
     html += '<thead><tr style="background:var(--bg);">';
     ['Contaminante', 'n válido', 'DF', 'Xtests (con DF)', 'VAR', 'Pasa si <', 'Falla si >', 'Decisión'].forEach(function(h) {
         html += '<th style="' + _copTh() + '">' + h + '</th>';
@@ -80493,7 +80545,7 @@ function copBuildStatsHTML() {
             html += '<tr>';
             html += '<td style="' + _copTd() + 'font-weight:600;text-align:left;padding-left: var(--space-md);">' + p.label + '</td>';
             html += '<td style="' + _copTd() + 'color:var(--muted);">' + p.validCount + '</td>';
-            html += '<td colspan="6" style="' + _copTd() + 'color:var(--muted);font-size: var(--fs-sm);">';
+            html += '<td colspan="6" data-label="" style="' + _copTd() + 'color:var(--muted);font-size: var(--fs-sm);">';
             html += p.validCount === 0 ? 'Sin datos' : 'Faltan ' + (3 - p.validCount) + ' vehículo(s) para calcular';
             html += '</td></tr>';
             return;
@@ -94421,7 +94473,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":10130,"mods":[[10133,"js/app.js",20630],[20634,"js/uiflow.js",20969],[20973,"js/cop15.js",32499],[32503,"js/inventory.js",40507],[40511,"js/cuarto.js",42641],[42645,"js/sitio.js",44828],[44832,"js/conslist.js",45440],[45444,"js/testplan.js",59047],[59051,"js/bloques.js",59679],[59683,"js/resumen.js",60092],[60096,"js/panel.js",65483],[65487,"js/projects.js",67776],[67780,"js/auth.js",68860],[68864,"js/signatures.js",69226],[69230,"js/firebase-sync.js",77868],[77872,"js/cop_validator.js",82820],[82824,"js/copreport.js",84974],[84978,"js/cophq.js",85788],[85792,"js/homolog.js",87689],[87693,"js/vets.js",89492],[89496,"js/historico.js",90410],[90414,"js/review.js",90883],[90887,"js/opcards.js",91336],[91340,"js/handoff.js",91619],[91623,"js/ficha.js",92124],[92128,"js/relevo.js",92508],[92512,"js/momentos.js",92649],[92653,"js/normas.js",93061],[93065,"js/digest.js",93993],[93997,"js/xlsxw.js",94377],[94381,"js/bugreport.js",95527]]};
+var BUG_LINE_MAP = {"tag":10134,"mods":[[10137,"js/app.js",20680],[20684,"js/uiflow.js",21019],[21023,"js/cop15.js",32549],[32553,"js/inventory.js",40557],[40561,"js/cuarto.js",42691],[42695,"js/sitio.js",44878],[44882,"js/conslist.js",45490],[45494,"js/testplan.js",59097],[59101,"js/bloques.js",59729],[59733,"js/resumen.js",60142],[60146,"js/panel.js",65533],[65537,"js/projects.js",67826],[67830,"js/auth.js",68910],[68914,"js/signatures.js",69276],[69280,"js/firebase-sync.js",77918],[77922,"js/cop_validator.js",82872],[82876,"js/copreport.js",85026],[85030,"js/cophq.js",85840],[85844,"js/homolog.js",87741],[87745,"js/vets.js",89544],[89548,"js/historico.js",90462],[90466,"js/review.js",90935],[90939,"js/opcards.js",91388],[91392,"js/handoff.js",91671],[91675,"js/ficha.js",92176],[92180,"js/relevo.js",92560],[92564,"js/momentos.js",92701],[92705,"js/normas.js",93113],[93117,"js/digest.js",94045],[94049,"js/xlsxw.js",94429],[94433,"js/bugreport.js",95579]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

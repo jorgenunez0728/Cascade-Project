@@ -20,6 +20,26 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.35.0 — Tablas que se leen en el teléfono (2026-11-10)
+
+Antes de cambiar nada se midió cada pantalla a ancho de teléfono (427 px) con datos
+realistas. Casi todas las tablas ya cabían: las que no, son las de abajo.
+
+### Cambió
+- **CoP → Validador → Análisis estadístico**: en el teléfono cada contaminante es una tarjeta
+  con sus valores (n, DF, Xtests, VAR, cotas y decisión). Antes era una tabla de 8 columnas que
+  medía más del doble de la pantalla. En computadora sigue siendo tabla.
+- **Las tablas que se deslizan de lado lo avisan**: el borde hacia donde hay más se desvanece.
+  Aplica al Plan Maestro de 52 semanas, al Gantt del CoP y de Proyectos, a la matriz de roles y a
+  cualquier otra que no quepa. Antes se cortaban en seco y nada decía que seguían.
+
+### Para desarrollo
+- `uiScrollHints(root)` (app.js) marca con `.u-xscroll` los contenedores que ya se desplazan en
+  horizontal y traen una tabla; el estado va en `data-more` y lo pinta una máscara en CSS.
+  `uiScrollHintState` es PURA. Corre desde `uiEnhance` y `uiEnhanceObserve`.
+- `tests/v3350.e2e.js` recorre todas las pestañas de Plan, Consumibles y Datos a 427 px y falla
+  si alguna desborda la página.
+
 ## 3.34.0 — Menos pestañas en Consumibles y en Datos (2026-11-10)
 
 ### Cambió

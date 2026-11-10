@@ -4391,3 +4391,18 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
   última sección usada (`uiPref('tabSections')`). El `active` de la anfitriona lo pone
   `_uiTabMergedSync`, no `xxSwitchTab`.
 - Un módulo con un solo grupo no pinta la fila de grupos (Consumibles).
+
+## 3.35.0 — Tablas en teléfono: medir antes de convertir (`js/app.js`)
+
+- **Una tabla se pasa a `u-cards` solo si de verdad no cabe a 427 px.** Una tabla corta de 4-5
+  columnas cabe como tabla y en tarjetas se lee peor (30 filas × 5 renglones). El barrido de
+  3.35.0 encontró una sola que lo necesitaba (la estadística del CoP); contar `<table` sin
+  `u-cards` en el código no dice nada.
+- **Una matriz (semanas, Gantt, roles × permisos) NO se convierte a tarjetas**: se queda con
+  desplazamiento horizontal dentro de un contenedor `overflow-x:auto`.
+- **`uiScrollHints` avisa solo**: todo contenedor que se desplace en horizontal con una tabla
+  adentro recibe `.u-xscroll` y `data-more`. No hace falta marcar nada a mano; sí hace falta
+  que el desplazamiento esté en un contenedor, nunca en la página.
+- Una celda con `colspan` que no es un valor de columna lleva `data-label=""` para que
+  `uiTableCards` no le ponga el nombre de la columna donde empieza.
+

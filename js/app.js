@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.34.0';
+var APP_VERSION = '3.35.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,10 @@ var APP_VERSION = '3.34.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.35.0', date: '10 nov 2026', title: 'Tablas que se leen en el teléfono',
+      bullets: ['CoP → Validador: el Análisis estadístico (8 columnas) sale como una tarjeta por contaminante en el teléfono. En computadora sigue siendo tabla.',
+                'Una tabla que no cabe y se desliza de lado (Plan Maestro de 52 semanas, el Gantt del CoP y de Proyectos, la matriz de roles) ahora desvanece el borde hacia donde hay más. Antes se cortaba en seco.',
+                'Se revisaron todas las pestañas de Plan, Consumibles y Datos a ancho de teléfono: ninguna desborda la página.'] },
     { version: '3.34.0', date: '10 nov 2026', title: 'Menos pestañas en Consumibles y en Datos',
       bullets: ['Consumibles pasa de 12 pestañas a 8 y ya no tiene fila de grupos: Resumen (con Predicción y Gráficas adentro), Cuarto, Captura, Existencias (Gases, Combustible y Trazabilidad), Equipos, Mantenimiento, Reporte y Tipos y zonas.',
                 'Datos pasa de 17 a 11: Ejecutivo, Tiempos e Inteligencia viven dentro de Reportes; Normas dentro de Regulaciones; Archivos y Fallas reportadas dentro de Sistema.',
@@ -7963,6 +7967,7 @@ function uiEnhance(root) {
     try { uiChipsEnhance(root); } catch (e) { console.warn('uiChipsEnhance:', e); }
     try { uiNumEnhance(root); } catch (e) { console.warn('uiNumEnhance:', e); }
     try { uiTableCards(root); } catch (e) { console.warn('uiTableCards:', e); }
+    try { uiScrollHints(root); } catch (e) { console.warn('uiScrollHints:', e); }
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -8322,6 +8327,7 @@ function uiEnhanceObserve() {
             if (!inp._num) { try { _uiNumAttach(inp); } catch (e) { console.warn('num:', e); } }
         });
         try { uiTableCards(document); } catch (e) {}
+        try { uiScrollHints(document); } catch (e) {}   // [3.35.0]
     };
     window._uiEnhanceMO = new MutationObserver(function(muts) {
         if (pending) return;
@@ -8396,6 +8402,46 @@ function uiTableCards(root) {
                 });
             });
         });
+    });
+}
+
+/**
+ * [3.35.0] Una tabla que no cabe y se desplaza de lado (matrices: Plan Maestro de 52
+ * semanas, Gantt, matriz de roles) lo DICE: el borde hacia donde hay más se desvanece.
+ * Antes la tabla se cortaba en seco y nada indicaba que seguía.
+ *   · Solo marca contenedores que YA se desplazan (overflow-x auto/scroll): no cambia el
+ *     acomodo de nada.
+ *   · El estado va en `data-more` (left | right | both | none) y lo pinta el CSS con una
+ *     máscara, así funciona aunque las celdas tengan fondo.
+ *   · Una tabla `u-cards` no entra: bajo 640 px ya es tarjetas.
+ */
+function uiScrollHintState(scrollLeft, clientWidth, scrollWidth) {   // PURA
+    if (!(scrollWidth - clientWidth > 2)) return 'none';
+    var l = scrollLeft > 2, r = scrollLeft + clientWidth < scrollWidth - 2;
+    return l && r ? 'both' : r ? 'right' : l ? 'left' : 'none';
+}
+function _uiScrollHintSync(el) {
+    var st = uiScrollHintState(el.scrollLeft, el.clientWidth, el.scrollWidth);
+    if (el.getAttribute('data-more') !== st) el.setAttribute('data-more', st);
+}
+function uiScrollHints(root) {
+    if (!root || !root.querySelectorAll || typeof getComputedStyle !== 'function') return;
+    [].forEach.call(root.querySelectorAll('table'), function(t) {
+        if (t._xsChecked) return;
+        t._xsChecked = true;
+        var el = t.parentElement, hops = 0;
+        while (el && el !== document.body && hops < 4) {
+            var o = getComputedStyle(el).overflowX;
+            if (o === 'auto' || o === 'scroll') break;
+            el = el.parentElement; hops++;
+        }
+        if (!el || el === document.body || hops >= 4 || el._xs) return;
+        el._xs = true;
+        el.classList.add('u-xscroll');
+        el.addEventListener('scroll', function() { _uiScrollHintSync(el); }, { passive: true });
+        // Una pestaña oculta mide 0: al mostrarse (o al girar el teléfono) se vuelve a medir.
+        if (typeof ResizeObserver !== 'undefined') { try { new ResizeObserver(function() { _uiScrollHintSync(el); }).observe(el); } catch (e) {} }
+        _uiScrollHintSync(el);
     });
 }
 
