@@ -1070,14 +1070,16 @@
             </div>
             <div id="lib-content" style="display:none;">
                 <!-- 2.1.0: aviso de rol (lo llena _cascadeRoleNote en loadRelease) -->
-                <div class="alert alert-warning cascade-role-note" id="lib-role-note" style="display:none;"></div>
-                <div class="alert alert-success" id="releaseInfo"></div>
-                <div class="card">
+                <!-- [3.37.0] data-step: cada tarjeta es un paso en el teléfono (js/pasos.js). -->
+                <button type="button" class="btn-secondary ls-toggle" onclick="libStepsEnter('liberador', { remember: true })" title="Un paso por pantalla, ideal en el teléfono">📇 Un paso a la vez</button>
+                <div class="alert alert-warning cascade-role-note" id="lib-role-note" data-step="resumen" style="display:none;"></div>
+                <div class="alert alert-success" id="releaseInfo" data-step="resumen"></div>
+                <div class="card" data-step="resumen">
                     <div class="card-title">📋 Resumen de Prueba</div>
                     <div id="testSummary"></div>
                 </div>
                 <!-- Gas results entry for emissions vehicles -->
-                <div id="lib-gas-entry-card" style="display:none;">
+                <div id="lib-gas-entry-card" data-step="resultados" style="display:none;">
                     <div class="card">
                         <div class="card-title" data-help="lib-gas-help">⚗️ Resultados de Emisiones</div>
                         <div class="vets-attach-row">
@@ -1090,11 +1092,11 @@
                     </div>
                 </div>
                 <!-- Checklist COP15-F05: objetos a retirar + evidencia documental -->
-                <div id="lib-checklist-card" class="card" style="display:none;">
+                <div id="lib-checklist-card" class="card" data-step="objetos evidencia" style="display:none;">
                     <div class="card-title" data-help="lib-checklist-help">🧾 Checklist de Liberación (COP15-F05)</div>
                     <div id="lib-checklist-content"></div>
                 </div>
-                <div class="card">
+                <div class="card" data-step="enviar">
                     <div class="card-title">✅ Acción</div>
                     <div id="lib-action-note" class="lib-action-note" style="display:none;"></div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -1127,13 +1129,14 @@
                 </select>
             </div>
             <div id="appr-content" style="display:none;">
-                <div class="alert alert-warning cascade-role-note" id="appr-role-note" style="display:none;"></div>
-                <div class="alert alert-success" id="approvalInfo"></div>
-                <div class="card">
+                <button type="button" class="btn-secondary ls-toggle" onclick="libStepsEnter('aprobador', { remember: true })" title="Un paso por pantalla, ideal en el teléfono">📇 Un paso a la vez</button>
+                <div class="alert alert-warning cascade-role-note" id="appr-role-note" data-step="resumen" style="display:none;"></div>
+                <div class="alert alert-success" id="approvalInfo" data-step="resumen"></div>
+                <div class="card" data-step="resumen">
                     <div class="card-title">📋 Resumen de Prueba</div>
                     <div id="approvalSummary"></div>
                 </div>
-                <div class="card">
+                <div class="card" data-step="verificar">
                     <div class="card-title" data-help="lib-gas-help" id="appr-card-title">⚗️ Verificación de Aprobador</div>
                     <p id="appr-card-hint" style="font-size:12px;color:var(--muted);margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
                     <div id="appr-gas-entry-content"></div>
@@ -1142,7 +1145,7 @@
                     <div id="appr-family-check" style="display:none;"></div>
                     <div id="appr-fail-box" style="display:none;"></div>
                 </div>
-                <div class="card">
+                <div class="card" data-step="decidir">
                     <div class="card-title">✅ Acción</div>
                     <div id="appr-vets-note" class="lib-action-note" style="display:none;"></div>
                     <button class="btn-primary" id="approve-archive-btn" onclick="approveAndArchive()" style="width:100%;" disabled>
@@ -2239,7 +2242,7 @@
 </div></div></div>
 
 <div id="invModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
-<div id="fbModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
+<div id="fbModal" class="fb-overlay" style="display:none;"></div>
 
 <!-- ═══ PLATFORM 7: CoP TYPE 1 VALIDATOR ═══ -->
 <div class="platform-section" id="platform-cop" role="region" aria-label="CoP Type 1 Validator">
@@ -2339,6 +2342,7 @@
 <script src="js/historico.js"></script>
 <script src="js/review.js"></script>
 <script src="js/opcards.js"></script>
+<script src="js/pasos.js"></script>
     <script src="js/handoff.js"></script>
     <script src="js/ficha.js"></script>
     <script src="js/relevo.js"></script>

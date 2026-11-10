@@ -20,6 +20,132 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.37.0 — Liberar y aprobar en el teléfono, un paso a la vez (2026-11-10)
+
+### Nuevo
+- **Liberación por pasos en el teléfono.** Antes era una sola página de más de cinco pantallas
+  de alto. Ahora se recorre así:
+  1. Resumen de la prueba
+  2. Resultados de emisiones (adjuntar VETS y los gases)
+  3. Objetos a retirar
+  4. Evidencia documental
+  5. Enviar a aprobación
+- **Aprobación por pasos**: Resumen, Verificación, y Aprobar o devolver.
+- Arriba se ve en qué paso vas. Los pasos con algo pendiente salen en ámbar.
+- El último paso dice qué falta antes de enviar o aprobar, y un toque lleva a ese paso.
+- **‹** regresa, **Siguiente ▸** avanza y deslizar hace lo mismo. Avanzar nunca captura ni
+  confirma nada.
+- La **✕** vuelve a la pantalla completa. El botón **📇 Un paso a la vez** regresa al modo por
+  pasos. Es la misma preferencia que Operación en tarjetas: si la apagas en un lado, se apaga en
+  el otro.
+
+### No cambió
+- Las tarjetas, los botones, los candados y la hoja F05 son los de siempre.
+- En computadora la pantalla es la misma.
+- En Aprobación, la decisión de una falla y la comparación con la familia siguen apareciendo
+  solo después de que los valores coinciden.
+
+### Arreglado
+- En Operación en tarjetas, un deslizamiento largo cambiaba de tarjeta y además de plataforma.
+
+### Pendiente
+- Los gases van todos en un paso, no uno por tarjeta: con la prueba de VETS adjunta llegan
+  llenos y se revisan mejor juntos.
+- La revisión dirigida va entera dentro del paso de Verificación, no un bloque por paso.
+
+### Para desarrollo
+- `js/pasos.js` (`libSteps*`). Los pasos son las tarjetas de Liberación y Aprobación en su
+  lugar, marcadas con `data-step` en `index.html`; el resto se esconde con `body.lib-steps`.
+- `libStepsFrom` y `libStepsWanted` son PURAS (`tests/pasos.node.js`). El archivo no escribe en
+  ningún vehículo ni llama a los candados; la prueba lo vigila.
+- Lo pendiente sale de `_libVerifyReleaseValues`, `releaseChecklistRows` y del motivo del botón
+  de aprobar.
+- `tests/v3370.e2e.js` recorre liberar y aprobar en 427×840 y verifica que 1920×1017 no cambia.
+
+## 3.36.0 — Las pantallas de la nube, en claro (2026-11-10)
+
+### Cambió
+- **☁️ Nube del laboratorio** reemplaza a la ventana "Firebase Cloud Sync". Se abre igual, desde el
+  indicador de sincronización de la barra de arriba, y responde en orden:
+  - **¿Este equipo está al día?** Verde, ámbar o rojo, con una frase y un solo botón cuando hay
+    algo que hacer: Reintentar, Conectar este equipo, Revisar qué se sube, Bajar los datos o Subir
+    ahora.
+  - **¿Qué falta por subir?** Vehículos que los demás aún no ven y cambios de Plan, Consumibles o
+    Datos que no se pudieron subir.
+  - **Espacio en la nube** de los módulos más llenos, y el **respaldo** diario.
+  - **Este equipo**: su nombre y la cuenta del laboratorio.
+- **Avanzado** queda plegado y solo lo ve quien administra la sincronización: probar la conexión,
+  actividad entre equipos, uso de la hora, qué módulos se sincronizan, recibir cambios al
+  momento, juntar datos de otro equipo y forzar subir o bajar todo.
+- **Bajar todo y reemplazar**, subir todo y descartar lo pendiente ahora piden el permiso de
+  administrar la sincronización. Bajar todo además confirma diciendo qué se pierde.
+- Las ventanas de comparar con otro equipo, historial, respaldos, restaurar, actividad, contraseña
+  del laboratorio y el aviso de actualización usan el tema claro de la app. Eran las únicas que
+  seguían en el tema oscuro retirado en 15.5.
+- Palabras del laboratorio: "juntar datos de otro equipo" (antes Smart Merge), "actividad entre
+  equipos" (Activity Feed), "respaldo" (Backup), "equipo" (estación).
+
+### Arreglado
+- La ventana mostraba instrucciones de configuración viejas, entre ellas unas reglas de base de
+  datos abiertas a cualquiera. Ya no aplican y se quitaron.
+- El nombre del equipo se podía guardar vacío.
+
+### Para desarrollo
+- `fbCloudStatus(src)` (PURA) ordena lo que ya saben `fbSync`, la cola, `fbVehStateOf` y la
+  revisión de un equipo atrasado; `_fbCloudSrc()` lo junta. No calcula nada nuevo.
+- `#fbModal` es `.fb-overlay` con z 9600 (antes 9999, igual que avisos y confirmaciones, que
+  podían quedar detrás).
+- Ninguna regla de fusión cambió: solo los `fb*Show*` y su HTML. La comparación módulo por módulo
+  (`fbMergeShowDiffUI`) se pasó a tema claro pero no se probó con dos equipos reales en esta ronda.
+
+## 3.35.0 — Tablas que se leen en el teléfono (2026-11-10)
+
+Antes de cambiar nada se midió cada pantalla a ancho de teléfono (427 px) con datos
+realistas. Casi todas las tablas ya cabían: las que no, son las de abajo.
+
+### Cambió
+- **CoP → Validador → Análisis estadístico**: en el teléfono cada contaminante es una tarjeta
+  con sus valores (n, DF, Xtests, VAR, cotas y decisión). Antes era una tabla de 8 columnas que
+  medía más del doble de la pantalla. En computadora sigue siendo tabla.
+- **Las tablas que se deslizan de lado lo avisan**: el borde hacia donde hay más se desvanece.
+  Aplica al Plan Maestro de 52 semanas, al Gantt del CoP y de Proyectos, a la matriz de roles y a
+  cualquier otra que no quepa. Antes se cortaban en seco y nada decía que seguían.
+
+### Para desarrollo
+- `uiScrollHints(root)` (app.js) marca con `.u-xscroll` los contenedores que ya se desplazan en
+  horizontal y traen una tabla; el estado va en `data-more` y lo pinta una máscara en CSS.
+  `uiScrollHintState` es PURA. Corre desde `uiEnhance` y `uiEnhanceObserve`.
+- `tests/v3350.e2e.js` recorre todas las pestañas de Plan, Consumibles y Datos a 427 px y falla
+  si alguna desborda la página.
+
+## 3.34.0 — Menos pestañas en Consumibles y en Datos (2026-11-10)
+
+### Cambió
+- **Consumibles: de 12 pestañas a 8, sin fila de grupos.** Quedan Resumen, Cuarto, Captura,
+  Existencias, Equipos, Mantenimiento, Reporte y Tipos y zonas.
+  - **Resumen** trae adentro Predicción y Gráficas.
+  - **Existencias** trae Gases, Combustible y Trazabilidad.
+- **Datos: de 17 pestañas a 11**, en dos grupos (Operación y Configuración).
+  - **Reportes** trae Ejecutivo, Tiempos e Inteligencia.
+  - **Regulaciones** trae Límites y Normas.
+  - **Sistema** trae Este equipo, Archivos y Fallas reportadas.
+- Al entrar a una de esas pestañas aparece debajo una fila de fichas para elegir la sección.
+  Tocar la pestaña otra vez abre la sección que usaste la última vez en este equipo.
+- Nada se quitó. El buscador, los enlaces de HOY y los de las alertas siguen llevando a cada
+  pantalla, y cada rol sigue viendo solo lo suyo: un Practicante ve Regulaciones → Normas, sin
+  Límites.
+
+### Arreglado
+- El aviso de alertas críticas de Consumibles citaba un grupo de pestañas que ya no existe.
+
+### Para desarrollo
+- `UI_TAB_MERGED` (app.js) es la definición de qué pestañas son secciones de otra. Los ids, los
+  renderers y la caché de cada pestaña no cambiaron: solo cambia qué botón se ve en la barra.
+- `uiTabMergedSet` y `uiTabMergedTarget` son PURAS. La última sección por anfitriona vive en
+  `uiPref('tabSections')`.
+- `tests/v3340.e2e.js` recorre cada id viejo en 427×840 y 1920×1017. `tests/v24.e2e.js` traía
+  dos conteos viejos (16 pestañas en Datos, cilindro nuevo "En uso") y se corrigieron.
+
 ## 3.33.0 — Resumen del año en inglés (2026-11-04)
 
 ### Nuevo

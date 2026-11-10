@@ -5579,6 +5579,94 @@ button.tp-blk:hover { border-color: var(--border-strong); }
 .ui-tabgroup:hover { color: var(--text); }
 .ui-tabgroup.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
 .tp-tab.ui-tg-hidden { display: none !important; }
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [3.37.0] LIBERAR Y APROBAR POR PASOS (js/pasos.js)                       */
+/* Las tarjetas son las de siempre, en su lugar: aquí solo se esconde todo  */
+/* lo demás. Encabezado y pie son los de Operación en tarjetas (.oc-*).     */
+/* ══════════════════════════════════════════════════════════════════════ */
+.ls-toggle { display: none; margin-bottom: var(--space-md); }
+@media (max-width: 640px) { .ls-toggle { display: inline-flex; } }
+body.lib-steps { padding-top: 104px; padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+body.lib-steps .platform-bar, body.lib-steps .ui-bar, body.lib-steps .bottom-nav,
+body.lib-steps .bug-fab, body.lib-steps #bug-fab, body.lib-steps #v7-next-step-banner,
+body.lib-steps .vcl-toggle, body.lib-steps .vcl-panel,
+body.lib-steps #platform-cop15 > .topbar, body.lib-steps #platform-cop15 .tabs,
+body.lib-steps #panel-liberacion > :not(#lib-panel-liberador):not(#lib-panel-aprobador),
+body.lib-steps #lib-panel-liberador > :not(#lib-content),
+body.lib-steps #lib-panel-aprobador > :not(#appr-content),
+body.lib-steps #lib-content > :not(.ls-current),
+body.lib-steps #appr-content > :not(.ls-current),
+body.lib-steps #lib-checklist-card[data-ls-part="objetos"] .relcl-group:nth-child(2),
+body.lib-steps #lib-checklist-card[data-ls-part="objetos"] .relcl-who,
+body.lib-steps #lib-checklist-card[data-ls-part="evidencia"] .relcl-group:nth-child(1) { display: none !important; }
+body.lib-steps .ls-current { max-width: 560px; margin-left: auto !important; margin-right: auto !important; }
+body.lib-steps .ls-current.card, body.lib-steps .ls-current > .card { box-shadow: none; }
+body.lib-steps .relcl-opt { min-height: var(--target-min); }
+.ls-foot { grid-template-columns: auto 1fr; }
+body.ls-at-last .ls-foot { grid-template-columns: auto; }
+body.ls-at-last .ls-foot .oc-save { display: none; }
+.oc-seg.ls-seg-pend .oc-seg-bar { background: var(--warn-bg); outline: 1px solid var(--warn-fill); }
+.oc-seg.ls-seg-pend .oc-seg-fill { background: var(--warn-fill); }
+.ls-pending { margin: 0 0 var(--space-md); padding: var(--space-md); border: 1px solid var(--warn-fill); background: var(--warn-bg); border-radius: var(--radius-lg); }
+.ls-pending-title { font-weight: 700; font-size: var(--fs-sm); margin-bottom: var(--space-xs); }
+.ls-pending-row { display: block; width: 100%; text-align: left; min-height: var(--target-min); }
+
+/* [3.36.0] ☁️ Nube: las pantallas de sincronización en el tema de la app.
+   z 9600: encima de uiFlow (9500) y de la ficha (9400), debajo de toasts y diálogos (9999). */
+.fb-overlay { position: fixed; inset: 0; z-index: 9600; overflow-y: auto; background: rgba(15, 23, 42, 0.45); padding: var(--space-lg) var(--space-md); }
+.fb-sheet { position: relative; max-width: 520px; margin: var(--space-lg) auto; padding: var(--space-xl); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-2xl, 16px); box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25); }
+.fb-close { position: absolute; top: var(--space-sm); right: var(--space-sm); width: var(--target-min); height: var(--target-min); border: none; background: none; color: var(--muted); font-size: var(--fs-lg, 18px); cursor: pointer; border-radius: var(--radius-md); }
+.fb-close:hover { background: var(--surface-alt); color: var(--text); }
+.fb-title { margin: 0 0 var(--space-2xs); font-size: var(--fs-lg, 18px); padding-right: var(--target-min); }
+.fb-sub { margin: 0 0 var(--space-lg); color: var(--muted); font-size: var(--fs-sm); }
+.fb-status { display: flex; gap: var(--space-md); padding: var(--space-md) var(--space-lg); border-radius: var(--radius-xl); border: 1px solid var(--border); margin-bottom: var(--space-md); }
+.fb-status--ok { background: var(--ok-bg); border-color: var(--ok-fill); }
+.fb-status--warn { background: var(--warn-bg); border-color: var(--warn-fill); }
+.fb-status--err { background: var(--danger-bg); border-color: var(--danger-fill); }
+.fb-status--off { background: var(--surface-alt); }
+.fb-status-icon { font-size: 24px; line-height: 1.2; }
+.fb-status-body { flex: 1; min-width: 0; }
+.fb-status-title { font-weight: 800; font-size: var(--fs-base); }
+.fb-status-detail { font-size: var(--fs-sm); margin-top: var(--space-2xs); }
+.fb-status-meta { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-xs); }
+.fb-status-btn { margin-top: var(--space-md); }
+.fb-errmore { margin-top: var(--space-sm); font-size: var(--fs-xs); }
+.fb-errmore > div { margin-top: var(--space-xs); white-space: pre-line; overflow-wrap: anywhere; }
+.fb-card { padding: var(--space-md) var(--space-lg); border: 1px solid var(--border); border-radius: var(--radius-xl); margin-bottom: var(--space-md); }
+.fb-card-title { font-weight: 700; font-size: var(--fs-sm); margin-bottom: var(--space-sm); }
+.fb-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); font-size: var(--fs-sm); padding: var(--space-2xs) 0; }
+.fb-row > b { white-space: nowrap; overflow-wrap: anywhere; text-align: right; }
+.fb-ok { color: var(--ok-text); } .fb-warn { color: var(--warn-text); }
+.fb-cap { margin-bottom: var(--space-sm); }
+.fb-bar { height: 6px; background: var(--surface-alt); border-radius: var(--radius-full); overflow: hidden; }
+.fb-bar-fill { height: 100%; border-radius: var(--radius-full); }
+.fb-bar-fill--ok { background: var(--ok-fill); } .fb-bar-fill--warn { background: var(--warn-fill); } .fb-bar-fill--err { background: var(--danger-fill); }
+.fb-note { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-sm); line-height: 1.5; }
+.fb-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-sm); }
+.fb-actions > .tp-btn { flex: 1 1 auto; justify-content: center; }
+.fb-label { display: block; font-size: var(--fs-xs); color: var(--muted); margin-bottom: var(--space-xs); }
+.fb-inline { display: flex; gap: var(--space-sm); }
+.fb-input { flex: 1; min-width: 0; padding: var(--space-sm) var(--space-md); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text); font-size: var(--fs-base); }
+.fb-alert { margin-top: var(--space-md); padding: var(--space-md); background: var(--danger-bg); border: 1px solid var(--danger-fill); border-radius: var(--radius-lg); font-size: var(--fs-sm); display: flex; flex-direction: column; gap: var(--space-sm); }
+.fb-adv { border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-sm) var(--space-lg); }
+.fb-adv > summary { cursor: pointer; font-weight: 700; font-size: var(--fs-sm); min-height: var(--target-min); display: flex; align-items: center; }
+.fb-sec { font-weight: 700; font-size: var(--fs-sm); margin: var(--space-lg) 0 var(--space-sm); padding-top: var(--space-md); border-top: 1px solid var(--border); }
+.fb-check { display: flex; align-items: center; gap: var(--space-sm); min-height: var(--target-min); font-size: var(--fs-sm); cursor: pointer; }
+@media (max-width: 480px) { .fb-overlay { padding: 0; } .fb-sheet { margin: 0; min-height: 100%; border-radius: 0; border: none; padding: var(--space-lg); } }
+
+/* [3.35.0] Una tabla que se desplaza de lado desvanece el borde hacia donde hay más. */
+.u-xscroll[data-more="right"] { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+.u-xscroll[data-more="left"]  { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
+.u-xscroll[data-more="both"]  { -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+/* [3.34.0] Pestañas fusionadas: la sección oculta sigue en el DOM (la lee el lanzador). */
+.tp-tab.ui-merged-hidden { display: none !important; }
+.ui-subtabs { display: flex; gap: var(--space-xs); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 0 var(--space-md); padding: 0 var(--space-2xs); }
+.ui-subtabs[hidden] { display: none !important; }
+.ui-subtabs::-webkit-scrollbar { display: none; }
+.ui-subtab { flex: 0 0 auto; min-height: var(--target-min); padding: var(--space-xs) var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-full, 999px); background: var(--surface); color: var(--muted); font-weight: 600; font-size: var(--fs-sm); cursor: pointer; white-space: nowrap; transition: background-color var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast); }
+.ui-subtab:hover { color: var(--text); }
+.ui-subtab.active { background: var(--text); border-color: var(--text); color: var(--surface); }
+.ui-tabgroups[hidden] { display: none !important; }
 @media (max-width: 480px) {
   .ui-tabgroup { flex: 1 0 auto; padding: var(--space-xs) var(--space-sm); font-size: var(--fs-sm); }
 }

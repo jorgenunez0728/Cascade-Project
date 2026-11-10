@@ -2609,7 +2609,9 @@ function copBuildStatsHTML() {
     }
 
     html += '<div style="overflow-x:auto;">';
-    html += '<table style="border-collapse:collapse;width:100%;min-width:500px;">';
+    // [3.35.0] 8 columnas no caben en un teléfono (medía 890 px en 349): bajo 640 px cada
+    // contaminante es una tarjeta con sus valores en dos columnas.
+    html += '<table class="u-cards u-cards-grid" style="border-collapse:collapse;width:100%;min-width:500px;">';
     html += '<thead><tr style="background:var(--bg);">';
     ['Contaminante', 'n válido', 'DF', 'Xtests (con DF)', 'VAR', 'Pasa si <', 'Falla si >', 'Decisión'].forEach(function(h) {
         html += '<th style="' + _copTh() + '">' + h + '</th>';
@@ -2622,7 +2624,7 @@ function copBuildStatsHTML() {
             html += '<tr>';
             html += '<td style="' + _copTd() + 'font-weight:600;text-align:left;padding-left: var(--space-md);">' + p.label + '</td>';
             html += '<td style="' + _copTd() + 'color:var(--muted);">' + p.validCount + '</td>';
-            html += '<td colspan="6" style="' + _copTd() + 'color:var(--muted);font-size: var(--fs-sm);">';
+            html += '<td colspan="6" data-label="" style="' + _copTd() + 'color:var(--muted);font-size: var(--fs-sm);">';
             html += p.validCount === 0 ? 'Sin datos' : 'Faltan ' + (3 - p.validCount) + ' vehículo(s) para calcular';
             html += '</td></tr>';
             return;

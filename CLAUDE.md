@@ -22,7 +22,7 @@ no-login operator picker, synced change history).
 |----------|----------|---------------------|
 | **Hoy** | **2.0.0**: Pulso del laboratorio (5 indicadores) → categorías como recuadros-filtro → Lo siguiente (5 acciones). **v23**: selector **Hoy \| Esta semana** — la semana usa el mismo formato de calendario del Plan y suma proyectos y calibraciones que vencen; el plan de pruebas aparece sólo una vez ACEPTADO | `platform-today` |
 | **Plan** | **2.33.0**: abre en el **🗓️ Calendario** (vista de planeación); el ▸ de cada semana la abre en **📅 Mi semana** — el tablero por día Y el armador en la MISMA pantalla. Más **🚑 Recuperación** (pronóstico), familias, simulador, producción | `platform-testplan` |
-| **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
+| **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory; **3.34.0**: 8 pestañas, las demás son secciones) | `platform-cop15`, `platform-inventory` |
 | **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**, **🗂️ Proyectos**) | `platform-panel` |
 | **CoP** | **v19.0**: 4 vistas — **📊 Panorama** (todas las familias del alcance de un vistazo), 📋 Validador (+ barra Xtests contra las cotas de UN R154; **3.15.0** 📤 Excel HQ por juicio), **📈 Control SPC** (I-MR, Nelson, Cpk, alarmas), **🗂️ Expediente** (cronología + PDF de auditoría) | `platform-cop` |
 
@@ -74,6 +74,7 @@ js/
   vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
   historico.js          ← Pruebas anteriores a la plataforma: importar VETS por lote + confirmación del aprobador (~620 lines)
   opcards.js            ← Operación en tarjetas (teléfono): una pregunta por pantalla (~420 lines)
+  pasos.js              ← Liberación y Aprobación por pasos (teléfono): las tarjetas de siempre, una a la vez (~300 lines)
   handoff.js            ← Avisos de relevo: "te toca a ti" (aprobar, devuelto, aprobado, soak) (~280 lines)
   ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~460 lines)
   relevo.js             ← Desde tu última vez: lo que cambió mientras no estabas (~380 lines)
@@ -199,7 +200,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → **`conslist.js`** → `testplan.js` → **`bloques.js`** → **`resumen.js`** → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`normas.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`pasos.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`normas.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -244,6 +245,11 @@ parecer necesario, se menciona solo si cambió un hecho concreto, y se dice cuá
   (28-oct-2026).
 - Vista previa del impacto de un cambio de límites antes de publicarlo (28-oct-2026).
 - Modo práctica para capacitación con datos de ejemplo aislados de la nube (28-oct-2026).
+
+- Cierre del año calendario como registro congelado y pruebas del cambio de año (10-nov-2026).
+- Que Recuperación use la tabla de puntos / fundirla con el Simulador (10-nov-2026).
+- Versión mínima para sincronizar: detener la subida de un equipo sin actualizar (10-nov-2026).
+- Traer el SDK de Firebase (y JsBarcode, html5-qrcode) a `vendor/` (10-nov-2026).
 
 **Pospuesta** ("no me interesa tanto por el momento", 28-oct-2026): un repaso de guía de captura
 en toda la plataforma. Lo que sí sigue valiendo es la regla de cada pantalla nueva: dejar claro
@@ -4368,3 +4374,81 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
   claves). Solo cambia lo que se lee: modelo, claves y datos son los mismos.
 - El idioma es `uiPref('yearSum').lang` (por equipo, no se sincroniza). Un factor nuevo del score
   agrega su nombre en `YS_TXT.en.parts` por su clave `k`; si falta, sale el de español.
+
+## 3.34.0 — Pestañas fusionadas (`js/app.js`)
+
+- **`UI_TAB_MERGED` es LA definición de qué pestañas son SECCIONES de otra.** En la barra queda
+  la anfitriona (`host`) y una fila de fichas (`#ui-subtabs-<mod>`) elige la sección. Una
+  pantalla nueva que sea "otra vista de lo mismo" se agrega ahí, no a la barra.
+- **Los ids no cambian**: cada sección conserva su botón (oculto con `.ui-merged-hidden`), su
+  renderer, su caché y su entrada en `HELP_TABS`. `xxSwitchTab('inv-fuel')`, `dashGo` y el
+  lanzador siguen igual. Nunca quitar del DOM el botón de una sección: de ahí la lee
+  `uiNavRegistry` (con `data-nav-label`).
+- Todas las secciones van en el MISMO grupo de `UI_TAB_GROUPS` que su anfitriona.
+- **La anfitriona debe ser una sección que vean todos los roles** que ven alguna (por eso la de
+  Regulaciones es `pn-normas` y no `pn-regulations`): la anfitriona se muestra si el rol ve
+  alguna sección, y `UI_TAB_VIEW` sigue decidiendo cada una.
+- Tocar la anfitriona se intercepta en captura sobre la barra (`uiTabMergedTarget`): abre la
+  última sección usada (`uiPref('tabSections')`). El `active` de la anfitriona lo pone
+  `_uiTabMergedSync`, no `xxSwitchTab`.
+- Un módulo con un solo grupo no pinta la fila de grupos (Consumibles).
+
+## 3.35.0 — Tablas en teléfono: medir antes de convertir (`js/app.js`)
+
+- **Una tabla se pasa a `u-cards` solo si de verdad no cabe a 427 px.** Una tabla corta de 4-5
+  columnas cabe como tabla y en tarjetas se lee peor (30 filas × 5 renglones). El barrido de
+  3.35.0 encontró una sola que lo necesitaba (la estadística del CoP); contar `<table` sin
+  `u-cards` en el código no dice nada.
+- **Una matriz (semanas, Gantt, roles × permisos) NO se convierte a tarjetas**: se queda con
+  desplazamiento horizontal dentro de un contenedor `overflow-x:auto`.
+- **`uiScrollHints` avisa solo**: todo contenedor que se desplace en horizontal con una tabla
+  adentro recibe `.u-xscroll` y `data-more`. No hace falta marcar nada a mano; sí hace falta
+  que el desplazamiento esté en un contenedor, nunca en la página.
+- Una celda con `colspan` que no es un valor de columna lleva `data-label=""` para que
+  `uiTableCards` no le ponga el nombre de la columna donde empieza.
+
+## 3.36.0 — ☁️ Nube (`js/firebase-sync.js`)
+
+- **`fbCloudStatus(src)` (PURA) es LA definición de lo que se le dice a una persona sobre la
+  nube** (`{level, title, detail, action}`), y `_fbCloudSrc()` junta sus datos. Un estado nuevo
+  de sincronización se agrega ahí, con su acción en `fbCloudAct`. Orden: sin nube → sin
+  contraseña → sin internet → error → apagada → conectando → equipo atrasado → equipo vacío →
+  módulo que no cabe → pendientes → al día.
+- **Ningún texto de sincronización que vea un técnico dice merge, sync, push, seed, REST,
+  Firebase ni estación** (`tests/v3360.e2e.js` lo vigila en `fbCloudStatus`). Se dice subir,
+  bajar, juntar, equipo, nube.
+- Las pantallas de la nube usan clases `.fb-*` y tokens. **No volver a escribir `#0f172a` /
+  `#1e293b` / `#334155` en un `style`**: eran restos del tema oscuro de 15.5.
+- `#fbModal` va en z 9600: debajo de avisos y confirmaciones (9999), encima de uiFlow (9500).
+  Todo lo que se abra DESDE una pantalla de la nube y deba verse encima usa `showConfirmDialog`
+  o `showModal`.
+- **Forzar subir, bajar o descartar pide `data.sync_admin` en la capa de datos**
+  (`fbCloudPushAll`, `fbCloudPullAllConfirm`, `fbCloudClearQueue`). `fbPullAll`/`fbPushAll` a
+  secas no llevan candado: los llama el propio sync. Un botón nuevo que los dispare a mano pasa
+  por esas envolturas.
+- Nunca mostrar en la app instrucciones de consola de Firebase ni reglas de ejemplo.
+
+## 3.37.0 — Liberar y aprobar por pasos (`js/pasos.js`)
+
+- **Los pasos son las tarjetas de Liberación y Aprobación en su lugar**, marcadas con
+  `data-step="clave"` en `index.html` (una tarjeta puede ser de dos pasos: el checklist es
+  `objetos evidencia`). `LIB_STEP_DEFS` es el orden y el título. Nunca mover un campo a otra
+  capa: los candados y `cascadeRepaintKeeping` leen esos elementos.
+- **Toda tarjeta nueva de `#lib-content` o `#appr-content` lleva `data-step`**, o en el
+  teléfono no se ve en ningún paso (`body.lib-steps` esconde lo que no es `.ls-current`).
+- **`pasos.js` no escribe en ningún vehículo ni llama a `submitToApproval` /
+  `approveAndArchive`** (`tests/pasos.node.js` lo vigila). "Siguiente" solo cambia de paso.
+- Lo pendiente de un paso se LEE de la regla que ya decide: `_libVerifyReleaseValues`,
+  `libFailDeclWhy`, `releaseChecklistRows`, y en Aprobación el `data-why` del botón
+  (`uiExplainDisabled`). Un candado nuevo se refleja solo si vive en una de esas.
+- **En Aprobación nada de lo que cop15.js muestra después de coincidir sale a un paso
+  propio** (decisión de falla, comparación con la familia): verlo antes rompe el doble ciego.
+- Un repintado (`loadRelease` / `loadApproval` por cambio remoto o VETS) conserva el paso
+  (`_lsKeep`). Si el vehículo deja el estado del modo (enviado, aprobado, devuelto), se sale
+  solo (`_lsRefresh`, escucha `data:saved`).
+- La preferencia es `uiPref('cardMode')`, la misma de Operación. En automático entra solo en
+  teléfono, con cualquier rol (Operación en automático sigue siendo solo Practicante y Técnico).
+- El gesto global de deslizar entre plataformas no corre con `body.op-cards` ni
+  `body.lib-steps`.
+- Orden de carga: `… review.js → opcards.js → pasos.js → handoff.js …`.
+
