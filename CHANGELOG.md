@@ -20,6 +20,42 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.36.0 — Las pantallas de la nube, en claro (2026-11-10)
+
+### Cambió
+- **☁️ Nube del laboratorio** reemplaza a la ventana "Firebase Cloud Sync". Se abre igual, desde el
+  indicador de sincronización de la barra de arriba, y responde en orden:
+  - **¿Este equipo está al día?** Verde, ámbar o rojo, con una frase y un solo botón cuando hay
+    algo que hacer: Reintentar, Conectar este equipo, Revisar qué se sube, Bajar los datos o Subir
+    ahora.
+  - **¿Qué falta por subir?** Vehículos que los demás aún no ven y cambios de Plan, Consumibles o
+    Datos que no se pudieron subir.
+  - **Espacio en la nube** de los módulos más llenos, y el **respaldo** diario.
+  - **Este equipo**: su nombre y la cuenta del laboratorio.
+- **Avanzado** queda plegado y solo lo ve quien administra la sincronización: probar la conexión,
+  actividad entre equipos, uso de la hora, qué módulos se sincronizan, recibir cambios al
+  momento, juntar datos de otro equipo y forzar subir o bajar todo.
+- **Bajar todo y reemplazar**, subir todo y descartar lo pendiente ahora piden el permiso de
+  administrar la sincronización. Bajar todo además confirma diciendo qué se pierde.
+- Las ventanas de comparar con otro equipo, historial, respaldos, restaurar, actividad, contraseña
+  del laboratorio y el aviso de actualización usan el tema claro de la app. Eran las únicas que
+  seguían en el tema oscuro retirado en 15.5.
+- Palabras del laboratorio: "juntar datos de otro equipo" (antes Smart Merge), "actividad entre
+  equipos" (Activity Feed), "respaldo" (Backup), "equipo" (estación).
+
+### Arreglado
+- La ventana mostraba instrucciones de configuración viejas, entre ellas unas reglas de base de
+  datos abiertas a cualquiera. Ya no aplican y se quitaron.
+- El nombre del equipo se podía guardar vacío.
+
+### Para desarrollo
+- `fbCloudStatus(src)` (PURA) ordena lo que ya saben `fbSync`, la cola, `fbVehStateOf` y la
+  revisión de un equipo atrasado; `_fbCloudSrc()` lo junta. No calcula nada nuevo.
+- `#fbModal` es `.fb-overlay` con z 9600 (antes 9999, igual que avisos y confirmaciones, que
+  podían quedar detrás).
+- Ninguna regla de fusión cambió: solo los `fb*Show*` y su HTML. La comparación módulo por módulo
+  (`fbMergeShowDiffUI`) se pasó a tema claro pero no se probó con dos equipos reales en esta ronda.
+
 ## 3.35.0 — Tablas que se leen en el teléfono (2026-11-10)
 
 Antes de cambiar nada se midió cada pantalla a ancho de teléfono (427 px) con datos

@@ -4406,3 +4406,24 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
 - Una celda con `colspan` que no es un valor de columna lleva `data-label=""` para que
   `uiTableCards` no le ponga el nombre de la columna donde empieza.
 
+## 3.36.0 — ☁️ Nube (`js/firebase-sync.js`)
+
+- **`fbCloudStatus(src)` (PURA) es LA definición de lo que se le dice a una persona sobre la
+  nube** (`{level, title, detail, action}`), y `_fbCloudSrc()` junta sus datos. Un estado nuevo
+  de sincronización se agrega ahí, con su acción en `fbCloudAct`. Orden: sin nube → sin
+  contraseña → sin internet → error → apagada → conectando → equipo atrasado → equipo vacío →
+  módulo que no cabe → pendientes → al día.
+- **Ningún texto de sincronización que vea un técnico dice merge, sync, push, seed, REST,
+  Firebase ni estación** (`tests/v3360.e2e.js` lo vigila en `fbCloudStatus`). Se dice subir,
+  bajar, juntar, equipo, nube.
+- Las pantallas de la nube usan clases `.fb-*` y tokens. **No volver a escribir `#0f172a` /
+  `#1e293b` / `#334155` en un `style`**: eran restos del tema oscuro de 15.5.
+- `#fbModal` va en z 9600: debajo de avisos y confirmaciones (9999), encima de uiFlow (9500).
+  Todo lo que se abra DESDE una pantalla de la nube y deba verse encima usa `showConfirmDialog`
+  o `showModal`.
+- **Forzar subir, bajar o descartar pide `data.sync_admin` en la capa de datos**
+  (`fbCloudPushAll`, `fbCloudPullAllConfirm`, `fbCloudClearQueue`). `fbPullAll`/`fbPushAll` a
+  secas no llevan candado: los llama el propio sync. Un botón nuevo que los dispare a mano pasa
+  por esas envolturas.
+- Nunca mostrar en la app instrucciones de consola de Firebase ni reglas de ejemplo.
+

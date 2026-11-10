@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.35.0';
+var APP_VERSION = '3.36.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '3.35.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.36.0', date: '10 nov 2026', title: 'Las pantallas de la nube, en claro',
+      bullets: ['El indicador de sincronización de la barra de arriba abre ☁️ Nube del laboratorio: dice si este equipo está al día, cuántos cambios faltan por subir y qué hacer (reintentar, conectar, revisar, bajar los datos).',
+                'Muestra además el espacio usado en la nube, el respaldo diario, el nombre de este equipo y la cuenta del laboratorio.',
+                'Lo que casi nunca se toca (qué módulos se sincronizan, juntar datos de otro equipo, subir o bajar todo) queda plegado en Avanzado y solo lo ve quien administra la sincronización. Bajar todo y reemplazar ahora pide ese permiso y una confirmación.',
+                'Todas las ventanas de sincronización, respaldos y actividad usan el mismo tema claro que el resto de la app y palabras del laboratorio.',
+                'Se quitaron de la pantalla unas instrucciones viejas de configuración que ya no aplicaban.'] },
     { version: '3.35.0', date: '10 nov 2026', title: 'Tablas que se leen en el teléfono',
       bullets: ['CoP → Validador: el Análisis estadístico (8 columnas) sale como una tarjeta por contaminante en el teléfono. En computadora sigue siendo tabla.',
                 'Una tabla que no cabe y se desliza de lado (Plan Maestro de 52 semanas, el Gantt del CoP y de Proyectos, la matriz de roles) ahora desvanece el borde hacia donde hay más. Antes se cortaba en seco.',

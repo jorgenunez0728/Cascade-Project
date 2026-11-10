@@ -5579,6 +5579,49 @@ button.tp-blk:hover { border-color: var(--border-strong); }
 .ui-tabgroup:hover { color: var(--text); }
 .ui-tabgroup.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
 .tp-tab.ui-tg-hidden { display: none !important; }
+/* [3.36.0] ☁️ Nube: las pantallas de sincronización en el tema de la app.
+   z 9600: encima de uiFlow (9500) y de la ficha (9400), debajo de toasts y diálogos (9999). */
+.fb-overlay { position: fixed; inset: 0; z-index: 9600; overflow-y: auto; background: rgba(15, 23, 42, 0.45); padding: var(--space-lg) var(--space-md); }
+.fb-sheet { position: relative; max-width: 520px; margin: var(--space-lg) auto; padding: var(--space-xl); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-2xl, 16px); box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25); }
+.fb-close { position: absolute; top: var(--space-sm); right: var(--space-sm); width: var(--target-min); height: var(--target-min); border: none; background: none; color: var(--muted); font-size: var(--fs-lg, 18px); cursor: pointer; border-radius: var(--radius-md); }
+.fb-close:hover { background: var(--surface-alt); color: var(--text); }
+.fb-title { margin: 0 0 var(--space-2xs); font-size: var(--fs-lg, 18px); padding-right: var(--target-min); }
+.fb-sub { margin: 0 0 var(--space-lg); color: var(--muted); font-size: var(--fs-sm); }
+.fb-status { display: flex; gap: var(--space-md); padding: var(--space-md) var(--space-lg); border-radius: var(--radius-xl); border: 1px solid var(--border); margin-bottom: var(--space-md); }
+.fb-status--ok { background: var(--ok-bg); border-color: var(--ok-fill); }
+.fb-status--warn { background: var(--warn-bg); border-color: var(--warn-fill); }
+.fb-status--err { background: var(--danger-bg); border-color: var(--danger-fill); }
+.fb-status--off { background: var(--surface-alt); }
+.fb-status-icon { font-size: 24px; line-height: 1.2; }
+.fb-status-body { flex: 1; min-width: 0; }
+.fb-status-title { font-weight: 800; font-size: var(--fs-base); }
+.fb-status-detail { font-size: var(--fs-sm); margin-top: var(--space-2xs); }
+.fb-status-meta { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-xs); }
+.fb-status-btn { margin-top: var(--space-md); }
+.fb-errmore { margin-top: var(--space-sm); font-size: var(--fs-xs); }
+.fb-errmore > div { margin-top: var(--space-xs); white-space: pre-line; overflow-wrap: anywhere; }
+.fb-card { padding: var(--space-md) var(--space-lg); border: 1px solid var(--border); border-radius: var(--radius-xl); margin-bottom: var(--space-md); }
+.fb-card-title { font-weight: 700; font-size: var(--fs-sm); margin-bottom: var(--space-sm); }
+.fb-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); font-size: var(--fs-sm); padding: var(--space-2xs) 0; }
+.fb-row > b { white-space: nowrap; overflow-wrap: anywhere; text-align: right; }
+.fb-ok { color: var(--ok-text); } .fb-warn { color: var(--warn-text); }
+.fb-cap { margin-bottom: var(--space-sm); }
+.fb-bar { height: 6px; background: var(--surface-alt); border-radius: var(--radius-full); overflow: hidden; }
+.fb-bar-fill { height: 100%; border-radius: var(--radius-full); }
+.fb-bar-fill--ok { background: var(--ok-fill); } .fb-bar-fill--warn { background: var(--warn-fill); } .fb-bar-fill--err { background: var(--danger-fill); }
+.fb-note { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-sm); line-height: 1.5; }
+.fb-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-sm); }
+.fb-actions > .tp-btn { flex: 1 1 auto; justify-content: center; }
+.fb-label { display: block; font-size: var(--fs-xs); color: var(--muted); margin-bottom: var(--space-xs); }
+.fb-inline { display: flex; gap: var(--space-sm); }
+.fb-input { flex: 1; min-width: 0; padding: var(--space-sm) var(--space-md); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text); font-size: var(--fs-base); }
+.fb-alert { margin-top: var(--space-md); padding: var(--space-md); background: var(--danger-bg); border: 1px solid var(--danger-fill); border-radius: var(--radius-lg); font-size: var(--fs-sm); display: flex; flex-direction: column; gap: var(--space-sm); }
+.fb-adv { border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-sm) var(--space-lg); }
+.fb-adv > summary { cursor: pointer; font-weight: 700; font-size: var(--fs-sm); min-height: var(--target-min); display: flex; align-items: center; }
+.fb-sec { font-weight: 700; font-size: var(--fs-sm); margin: var(--space-lg) 0 var(--space-sm); padding-top: var(--space-md); border-top: 1px solid var(--border); }
+.fb-check { display: flex; align-items: center; gap: var(--space-sm); min-height: var(--target-min); font-size: var(--fs-sm); cursor: pointer; }
+@media (max-width: 480px) { .fb-overlay { padding: 0; } .fb-sheet { margin: 0; min-height: 100%; border-radius: 0; border: none; padding: var(--space-lg); } }
+
 /* [3.35.0] Una tabla que se desplaza de lado desvanece el borde hacia donde hay más. */
 .u-xscroll[data-more="right"] { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
 .u-xscroll[data-more="left"]  { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
