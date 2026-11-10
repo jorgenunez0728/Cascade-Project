@@ -22,7 +22,7 @@ no-login operator picker, synced change history).
 |----------|----------|---------------------|
 | **Hoy** | **2.0.0**: Pulso del laboratorio (5 indicadores) → categorías como recuadros-filtro → Lo siguiente (5 acciones). **v23**: selector **Hoy \| Esta semana** — la semana usa el mismo formato de calendario del Plan y suma proyectos y calibraciones que vencen; el plan de pruebas aparece sólo una vez ACEPTADO | `platform-today` |
 | **Plan** | **2.33.0**: abre en el **🗓️ Calendario** (vista de planeación); el ▸ de cada semana la abre en **📅 Mi semana** — el tablero por día Y el armador en la MISMA pantalla. Más **🚑 Recuperación** (pronóstico), familias, simulador, producción | `platform-testplan` |
-| **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
+| **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory; **3.34.0**: 8 pestañas, las demás son secciones) | `platform-cop15`, `platform-inventory` |
 | **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**, **🗂️ Proyectos**) | `platform-panel` |
 | **CoP** | **v19.0**: 4 vistas — **📊 Panorama** (todas las familias del alcance de un vistazo), 📋 Validador (+ barra Xtests contra las cotas de UN R154; **3.15.0** 📤 Excel HQ por juicio), **📈 Control SPC** (I-MR, Nelson, Cpk, alarmas), **🗂️ Expediente** (cronología + PDF de auditoría) | `platform-cop` |
 
@@ -244,6 +244,11 @@ parecer necesario, se menciona solo si cambió un hecho concreto, y se dice cuá
   (28-oct-2026).
 - Vista previa del impacto de un cambio de límites antes de publicarlo (28-oct-2026).
 - Modo práctica para capacitación con datos de ejemplo aislados de la nube (28-oct-2026).
+
+- Cierre del año calendario como registro congelado y pruebas del cambio de año (10-nov-2026).
+- Que Recuperación use la tabla de puntos / fundirla con el Simulador (10-nov-2026).
+- Versión mínima para sincronizar: detener la subida de un equipo sin actualizar (10-nov-2026).
+- Traer el SDK de Firebase (y JsBarcode, html5-qrcode) a `vendor/` (10-nov-2026).
 
 **Pospuesta** ("no me interesa tanto por el momento", 28-oct-2026): un repaso de guía de captura
 en toda la plataforma. Lo que sí sigue valiendo es la regla de cada pantalla nueva: dejar claro
@@ -4368,3 +4373,21 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
   claves). Solo cambia lo que se lee: modelo, claves y datos son los mismos.
 - El idioma es `uiPref('yearSum').lang` (por equipo, no se sincroniza). Un factor nuevo del score
   agrega su nombre en `YS_TXT.en.parts` por su clave `k`; si falta, sale el de español.
+
+## 3.34.0 — Pestañas fusionadas (`js/app.js`)
+
+- **`UI_TAB_MERGED` es LA definición de qué pestañas son SECCIONES de otra.** En la barra queda
+  la anfitriona (`host`) y una fila de fichas (`#ui-subtabs-<mod>`) elige la sección. Una
+  pantalla nueva que sea "otra vista de lo mismo" se agrega ahí, no a la barra.
+- **Los ids no cambian**: cada sección conserva su botón (oculto con `.ui-merged-hidden`), su
+  renderer, su caché y su entrada en `HELP_TABS`. `xxSwitchTab('inv-fuel')`, `dashGo` y el
+  lanzador siguen igual. Nunca quitar del DOM el botón de una sección: de ahí la lee
+  `uiNavRegistry` (con `data-nav-label`).
+- Todas las secciones van en el MISMO grupo de `UI_TAB_GROUPS` que su anfitriona.
+- **La anfitriona debe ser una sección que vean todos los roles** que ven alguna (por eso la de
+  Regulaciones es `pn-normas` y no `pn-regulations`): la anfitriona se muestra si el rol ve
+  alguna sección, y `UI_TAB_VIEW` sigue decidiendo cada una.
+- Tocar la anfitriona se intercepta en captura sobre la barra (`uiTabMergedTarget`): abre la
+  última sección usada (`uiPref('tabSections')`). El `active` de la anfitriona lo pone
+  `_uiTabMergedSync`, no `xxSwitchTab`.
+- Un módulo con un solo grupo no pinta la fila de grupos (Consumibles).

@@ -179,7 +179,7 @@ const frame = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() =>
                      launcher: typeof uiNavRegistry === 'function' ? uiNavRegistry().filter(d => /Auditor/i.test(d.label || d.title || '')).length : 1 };
         });
         chk('B3: Datos muestra solo las pestañas del grupo abierto (Configuración)', tg.grp && /Configuración/.test(tg.grp) && tg.vis.length <= 7 && tg.vis.some(t => /Auditor/.test(t)), JSON.stringify(tg));
-        chk('B3: ninguna pestaña se perdió (16) y ya no hay menú "Más"', tg.total === 16 && tg.more === 0, JSON.stringify(tg));
+        chk('B3: ninguna pestaña se perdió (17) y ya no hay menú "Más"', tg.total === 17 && tg.more === 0, JSON.stringify(tg));
         chk('B3: tocar un grupo abre su primera pestaña y al volver recuerda la última', tg.tabOp === 'pn-dashboard' && tg.back === 'pn-audit', JSON.stringify(tg));
         chk('B3: el lanzador sigue encontrando pestañas ocultas por grupo', tg.launcher >= 1, JSON.stringify(tg));
 
@@ -241,7 +241,7 @@ const frame = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() =>
                 const chips = s && s._chips ? [...s._chips.querySelectorAll('.ui-chip')].map(b => b.textContent.trim()) : [];
                 return { chips, value: s && s.value };
             });
-            chk('B2: estado de cilindro en botones y en español', g.chips.join('|') === 'En uso|En almacén|Reserva|Vacío' && g.value === 'In use', JSON.stringify(g));
+            chk('B2: estado de cilindro en botones y en español', g.chips.join('|') === 'En uso|En almacén|Reserva|Vacío' && g.value === 'Stock', JSON.stringify(g));
         }
         await page.close();
     }

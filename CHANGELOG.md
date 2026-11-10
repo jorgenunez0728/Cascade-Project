@@ -20,6 +20,34 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.34.0 — Menos pestañas en Consumibles y en Datos (2026-11-10)
+
+### Cambió
+- **Consumibles: de 12 pestañas a 8, sin fila de grupos.** Quedan Resumen, Cuarto, Captura,
+  Existencias, Equipos, Mantenimiento, Reporte y Tipos y zonas.
+  - **Resumen** trae adentro Predicción y Gráficas.
+  - **Existencias** trae Gases, Combustible y Trazabilidad.
+- **Datos: de 17 pestañas a 11**, en dos grupos (Operación y Configuración).
+  - **Reportes** trae Ejecutivo, Tiempos e Inteligencia.
+  - **Regulaciones** trae Límites y Normas.
+  - **Sistema** trae Este equipo, Archivos y Fallas reportadas.
+- Al entrar a una de esas pestañas aparece debajo una fila de fichas para elegir la sección.
+  Tocar la pestaña otra vez abre la sección que usaste la última vez en este equipo.
+- Nada se quitó. El buscador, los enlaces de HOY y los de las alertas siguen llevando a cada
+  pantalla, y cada rol sigue viendo solo lo suyo: un Practicante ve Regulaciones → Normas, sin
+  Límites.
+
+### Arreglado
+- El aviso de alertas críticas de Consumibles citaba un grupo de pestañas que ya no existe.
+
+### Para desarrollo
+- `UI_TAB_MERGED` (app.js) es la definición de qué pestañas son secciones de otra. Los ids, los
+  renderers y la caché de cada pestaña no cambiaron: solo cambia qué botón se ve en la barra.
+- `uiTabMergedSet` y `uiTabMergedTarget` son PURAS. La última sección por anfitriona vive en
+  `uiPref('tabSections')`.
+- `tests/v3340.e2e.js` recorre cada id viejo en 427×840 y 1920×1017. `tests/v24.e2e.js` traía
+  dos conteos viejos (16 pestañas en Datos, cilindro nuevo "En uso") y se corrigieron.
+
 ## 3.33.0 — Resumen del año en inglés (2026-11-04)
 
 ### Nuevo

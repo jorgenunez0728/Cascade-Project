@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.33.0';
+var APP_VERSION = '3.34.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,11 @@ var APP_VERSION = '3.33.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.34.0', date: '10 nov 2026', title: 'Menos pestañas en Consumibles y en Datos',
+      bullets: ['Consumibles pasa de 12 pestañas a 8 y ya no tiene fila de grupos: Resumen (con Predicción y Gráficas adentro), Cuarto, Captura, Existencias (Gases, Combustible y Trazabilidad), Equipos, Mantenimiento, Reporte y Tipos y zonas.',
+                'Datos pasa de 17 a 11: Ejecutivo, Tiempos e Inteligencia viven dentro de Reportes; Normas dentro de Regulaciones; Archivos y Fallas reportadas dentro de Sistema.',
+                'Al entrar a una de esas pestañas aparece debajo una fila de fichas para elegir la sección, y la próxima vez abre en la que usaste.',
+                'Nada se quitó: el buscador y los enlaces de HOY y de las alertas siguen llevando a cada pantalla.'] },
     { version: '3.33.0', date: '4 nov 2026', title: 'Resumen del año en inglés',
       bullets: ['Plan → Resumen del año: botón Idioma (Español / English). En inglés cambian títulos, encabezados, indicadores, la tira de meses (J F M A…), la leyenda y la tarjeta de prioridad con sus factores. Los números son los mismos.',
                 'La elección se queda en este equipo; no le cambia la pantalla a nadie más.'] },
@@ -2824,6 +2829,7 @@ function themeInit() {
 var UI_PREFS_KEY = 'kia_ui_prefs';
 var UI_PREFS_DEFAULTS = {
     tabGroups: {},   // [v24] última pestaña abierta en cada grupo (uiTabGroups)
+    tabSections: {}, // [3.34.0] última sección abierta en cada pestaña fusionada (UI_TAB_MERGED)
     density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {},
     dashRange: 'hoy',      // [v23] HOY: 'hoy' | 'semana'
     nextStep: true,        // [v23.1] tira flotante "Siguiente:" en Pruebas (issue #109)
@@ -7765,7 +7771,7 @@ function uiNavRegistry() {
             var p = _uiParseOnclick(b.getAttribute('onclick'));
             if (!p) return;
             if (!uiTabVisible(p.arg)) return;   // [2.16.0] lo que este rol no ve tampoco se busca
-            var s = _uiSplitIcon(b.textContent, src.fallback);
+            var s = _uiSplitIcon(b.getAttribute('data-nav-label') || b.textContent, src.fallback);   // [3.34.0]
             push({ id: p.arg, icon: s.icon, label: s.label, group: src.group,
                    keywords: _uiHelpText(p.arg),
                    go: (function(pl, t){ return function(){ dashGo(pl, t); }; })(src.plat, p.arg) });
@@ -7975,18 +7981,103 @@ var UI_TAB_GROUPS = {
             { id: 'semana', label: '📅 Semana', tabs: ['tp-calendar', 'tp-myweek'] },
             { id: 'cobertura', label: '📊 Cobertura', tabs: ['tp-dashboard', 'tp-yearsummary', 'tp-tested', 'tp-families'] },
             { id: 'planeacion', label: '🧭 Planeación', tabs: ['tp-recovery', 'tp-simulator', 'tp-production', 'tp-rules'] } ] },
+    // [3.34.0] Consumibles ya no lleva fila de grupos: son 8 pestañas (ver UI_TAB_MERGED).
     inv: { bar: 'inv-tabs-bar', sw: 'invSwitchTab', state: function() { return typeof invState !== 'undefined' && invState.activeTab; },
           groups: [
-            { id: 'diario', label: '📏 Día a día', tabs: ['inv-zonemap', 'inv-readings', 'inv-dashboard', 'inv-gases', 'inv-fuel'] },
-            { id: 'equipos', label: '🔧 Equipos', tabs: ['inv-equipment', 'inv-maint'] },
-            { id: 'analisis', label: '📈 Análisis', tabs: ['inv-predict', 'inv-charts', 'inv-report', 'inv-trace'] },
-            { id: 'ajustes', label: '⚙️ Ajustes', tabs: ['inv-config'] } ] },
+            { id: 'todo', label: 'Consumibles', tabs: ['inv-dashboard', 'inv-predict', 'inv-charts', 'inv-zonemap', 'inv-readings',
+                                                       'inv-gases', 'inv-fuel', 'inv-trace', 'inv-equipment', 'inv-maint', 'inv-report', 'inv-config'] } ] },
     pn: { bar: 'pn-tabs-bar', sw: 'pnSwitchTab', state: function() { return typeof pnState !== 'undefined' && pnState.activeTab; },
           groups: [
-            { id: 'operacion', label: '🧪 Operación', tabs: ['pn-dashboard', 'pn-alerts', 'pn-shift', 'pn-calendar', 'pn-projects'] },
-            { id: 'reportes', label: '📤 Reportes', tabs: ['pn-reports', 'pn-executive', 'pn-turnaround', 'pn-intelligence'] },
-            { id: 'config', label: '⚙️ Configuración', tabs: ['pn-users', 'pn-regulations', 'pn-normas', 'pn-homolog', 'pn-system', 'pn-audit', 'pn-files', 'pn-bugs'] } ] }
+            { id: 'operacion', label: '🧪 Operación', tabs: ['pn-dashboard', 'pn-alerts', 'pn-reports', 'pn-executive', 'pn-turnaround', 'pn-intelligence',
+                                                              'pn-shift', 'pn-calendar', 'pn-projects'] },
+            { id: 'config', label: '⚙️ Configuración', tabs: ['pn-users', 'pn-regulations', 'pn-normas', 'pn-homolog', 'pn-system', 'pn-files', 'pn-bugs', 'pn-audit'] } ] }
 };
+// ── [3.34.0] Pestañas fusionadas ─────────────────────────────────────────
+// Consumibles tenía 12 pestañas y Datos 17. Varias eran la misma cosa vista de otro modo
+// (Dashboard / Predicción / Gráficas) y se abrían por separado. UI_TAB_MERGED es LA
+// definición de qué pestañas son SECCIONES de otra: en la barra queda solo la anfitriona
+// (`host`) y, al entrar, una fila de fichas elige la sección.
+//   · Los ids NO cambian: `invSwitchTab('inv-fuel')` sigue funcionando (dashGo, lanzador,
+//     alertas, HOY), y cada sección conserva su renderer, su caché y su ayuda.
+//   · Los botones de las secciones siguen en el DOM, ocultos: de ahí los lee uiNavRegistry.
+//   · Una pestaña nueva que sea "otra vista de lo mismo" se agrega aquí, no a la barra.
+var UI_TAB_MERGED = {
+    inv: [
+        { host: 'inv-dashboard', label: '📊 Resumen', tabs: [
+            { id: 'inv-dashboard', label: '📊 General' }, { id: 'inv-predict', label: '🔮 Predicción' }, { id: 'inv-charts', label: '📈 Gráficas' } ] },
+        { host: 'inv-gases', label: '🧴 Existencias', tabs: [
+            { id: 'inv-gases', label: '🔴 Gases' }, { id: 'inv-fuel', label: '⛽ Combustible' }, { id: 'inv-trace', label: '🔗 Trazabilidad' } ] }
+    ],
+    pn: [
+        { host: 'pn-reports', label: '📤 Reportes', tabs: [
+            { id: 'pn-reports', label: '📤 Exportar' }, { id: 'pn-executive', label: '📈 Ejecutivo' },
+            { id: 'pn-turnaround', label: '⏱ Tiempos' }, { id: 'pn-intelligence', label: '🧠 Inteligencia' } ] },
+        // La anfitriona es Normas (la ven todos); Límites solo quien aprueba o edita límites.
+        { host: 'pn-normas', label: '⚗️ Regulaciones', tabs: [
+            { id: 'pn-regulations', label: '⚗️ Límites' }, { id: 'pn-normas', label: '📚 Normas' } ] },
+        { host: 'pn-system', label: '💾 Sistema', tabs: [
+            { id: 'pn-system', label: '💾 Este equipo' }, { id: 'pn-files', label: '☁️ Archivos' }, { id: 'pn-bugs', label: '🐞 Fallas reportadas' } ] }
+    ]
+};
+
+/** El conjunto fusionado al que pertenece una pestaña, o null. PURA. */
+function uiTabMergedSet(mod, tabId, map) {
+    var sets = (map || UI_TAB_MERGED)[mod] || [];
+    for (var i = 0; i < sets.length; i++) {
+        for (var j = 0; j < sets[i].tabs.length; j++) if (sets[i].tabs[j].id === tabId) return sets[i];
+    }
+    return null;
+}
+
+/**
+ * A qué sección lleva tocar la anfitriona: la última que esta persona abrió ahí, si la
+ * sigue viendo; si no, la primera que ve. PURA (`visible(id)` y `remembered` inyectados).
+ */
+function uiTabMergedTarget(set, remembered, visible) {
+    if (!set) return null;
+    var ids = set.tabs.map(function(t) { return t.id; }).filter(function(id) { return !visible || visible(id); });
+    if (!ids.length) return null;
+    return (remembered && ids.indexOf(remembered) !== -1) ? remembered : ids[0];
+}
+
+/** Pinta la fila de secciones de la pestaña abierta (o la esconde si no es fusionada). */
+function _uiTabMergedSync(mod, tab) {
+    var cfg = UI_TAB_GROUPS[mod]; if (!cfg) return;
+    var bar = document.getElementById(cfg.bar); if (!bar) return;
+    var sets = UI_TAB_MERGED[mod] || [];
+    var cur = uiTabMergedSet(mod, tab);
+    sets.forEach(function(set) {
+        var hostBtn = null;
+        [].forEach.call(bar.querySelectorAll('.tp-tab'), function(b) {
+            var id = _uiTabIdOf(b);
+            if (id === set.host) hostBtn = b;
+        });
+        if (!hostBtn) return;
+        var on = cur === set;
+        hostBtn.classList.toggle('active', on);
+        hostBtn.setAttribute('aria-selected', on ? 'true' : 'false');
+        // La barra se desplaza en teléfono: que la anfitriona activa quede a la vista
+        // (se mueve solo la barra, nunca la página).
+        if (on && bar.scrollWidth > bar.clientWidth) {
+            var l = hostBtn.offsetLeft - bar.offsetLeft, r = l + hostBtn.offsetWidth;
+            if (l < bar.scrollLeft || r > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = Math.max(0, l - (bar.clientWidth - hostBtn.offsetWidth) / 2);
+        }
+        // La anfitriona se ve si este rol ve ALGUNA de sus secciones.
+        hostBtn.classList.toggle('ui-role-hidden', !set.tabs.some(function(t) { return uiTabVisible(t.id); }));
+    });
+    var row = document.getElementById('ui-subtabs-' + mod);
+    if (!row) return;
+    if (!cur) { row.hidden = true; row.innerHTML = ''; return; }
+    var vis = cur.tabs.filter(function(t) { return uiTabVisible(t.id); });
+    row.hidden = vis.length < 2;
+    row.innerHTML = vis.map(function(t) {
+        return '<button type="button" class="ui-subtab' + (t.id === tab ? ' active' : '') + '" role="tab" aria-selected="' + (t.id === tab ? 'true' : 'false') +
+               '" data-subtab="' + t.id + '">' + escapeHtml(t.label) + '</button>';
+    }).join('');
+    var mem = Object.assign({}, uiPref('tabSections') || {});
+    if (mem[cur.host] !== tab) { mem[cur.host] = tab; uiPref('tabSections', mem); }
+}
+
 // ── [2.16.0] Cada rol ve lo suyo ────────────────────────────────────────
 // Datos tiene 16 pestañas y Plan 11, y todos veían todas: un Practicante abría Reglas,
 // Producción o Auditoría para encontrarse con que no podía hacer nada ahí. UI_TAB_VIEW es
@@ -8096,7 +8187,44 @@ function uiTabGroupsInit(mod) {
         row.appendChild(b);
     });
     bar.parentNode.insertBefore(row, bar);
+    if (cfg.groups.length < 2) row.hidden = true;   // [3.34.0] un solo grupo no necesita fila
     bar.setAttribute('data-grouped', '1');
+
+    // [3.34.0] Pestañas fusionadas: en la barra queda la anfitriona; sus secciones se
+    // eligen en una fila de fichas debajo.
+    var sets = UI_TAB_MERGED[mod] || [];
+    sets.forEach(function(set) {
+        set.tabs.forEach(function(t) {
+            var b = byId[t.id]; if (!b) return;
+            b.setAttribute('data-nav-label', t.label);   // lo que lee el lanzador
+            if (t.id === set.host) { if (!b.children.length) b.textContent = set.label; b.setAttribute('data-merged-host', '1'); }
+            else b.classList.add('ui-merged-hidden');
+        });
+    });
+    if (sets.length) {
+        var sub = document.createElement('div');
+        sub.className = 'ui-subtabs';
+        sub.id = 'ui-subtabs-' + mod;
+        sub.setAttribute('role', 'tablist');
+        sub.setAttribute('aria-label', 'Secciones de esta pestaña');
+        sub.hidden = true;
+        sub.addEventListener('click', function(e) {
+            var b = e.target.closest ? e.target.closest('[data-subtab]') : null;
+            if (b && typeof window[cfg.sw] === 'function') window[cfg.sw](b.getAttribute('data-subtab'));
+        });
+        bar.parentNode.insertBefore(sub, bar.nextSibling);
+        // Tocar la anfitriona abre la sección que esta persona usó la última vez. En
+        // captura: así el onclick del botón (que abriría siempre la primera) no corre.
+        bar.addEventListener('click', function(e) {
+            var b = e.target.closest ? e.target.closest('.tp-tab[data-merged-host]') : null;
+            if (!b) return;
+            var set = uiTabMergedSet(mod, _uiTabIdOf(b));
+            var to = uiTabMergedTarget(set, (uiPref('tabSections') || {})[set.host], uiTabVisible);
+            if (!to) return;
+            e.stopPropagation(); e.preventDefault();
+            if (typeof window[cfg.sw] === 'function') window[cfg.sw](to);
+        }, true);
+    }
 
     // Mantener el grupo al día sin importar quién cambie de pestaña (un clic, dashGo,
     // un render que restaura la pestaña guardada).
@@ -8151,6 +8279,7 @@ function uiTabGroupsSync(mod) {
     var mem = Object.assign({}, uiPref('tabGroups') || {});
     mem[mod] = Object.assign({}, mem[mod] || {}); mem[mod][g.id] = tab;
     uiPref('tabGroups', mem);
+    _uiTabMergedSync(mod, tab);   // [3.34.0]
 }
 
 /** La primera pestaña que este rol ve en un módulo (o en un grupo). */
@@ -9197,7 +9326,7 @@ var TOURS = {
         { target: '[data-help="tp-csvimport-help"]', title: 'Producción', text: 'Importa el CSV del plan de producción — se fusiona con lo anterior, no lo borra.', position: 'top', tab: 'tp-production' }
     ],
     inventory: [
-        { target: '#inv-tabs-bar', title: 'Pestañas de Inventario', text: 'Navega entre resumen, cilindros, equipos, captura diaria, predicción, combustible y mapa.', position: 'bottom' },
+        { target: '#inv-tabs-bar', title: 'Pestañas de Inventario', text: 'Resumen, cuarto, captura diaria, existencias (gases y combustible), equipos, mantenimiento y reporte. Resumen y Existencias traen sus secciones en la fila de abajo.', position: 'bottom' },
         { target: '[data-help="inv-readings-help"]', title: 'Captura diaria', text: 'Captura el PSI de cada cilindro en uso — de estas lecturas la plataforma APRENDE el consumo.', position: 'bottom', tab: 'inv-readings' },
         { target: '[onclick="invShowAddGas()"]', title: 'Alta de cilindro', text: 'Registra un cilindro nuevo con su fórmula, concentración, zona y vigencia.', position: 'bottom', tab: 'inv-gases' },
         { target: '[data-help="inv-equipment-help"]', title: 'Equipos y Calibración', text: 'Semáforo de calibración por instrumento. El botón "✅ Calibrado" registra la calibración en dos toques — fecha y certificado — y calcula sola la próxima fecha. "📥 Actualizar desde Excel" carga el COP15-F11 completo.', position: 'bottom', tab: 'inv-equipment' },
@@ -9205,7 +9334,7 @@ var TOURS = {
         { target: '[data-help="inv-predict-model"]', title: 'Predicción', text: 'Consumo aprendido y proyección: ¿alcanza el gas/combustible para el plan?', position: 'top', tab: 'inv-predict' }
     ],
     panel: [
-        { target: '#pn-tabs-bar', title: 'Pestañas de Datos', text: 'Resumen, reportes, ejecutivo, turnaround, operadores, bitácora, alertas, auditoría y más.', position: 'bottom' },
+        { target: '#pn-tabs-bar', title: 'Pestañas de Datos', text: 'Operación (resumen, alertas, reportes, bitácora, calendario, proyectos) y Configuración (usuarios, regulaciones, homologación, sistema, auditoría). Reportes, Regulaciones y Sistema traen sus secciones en la fila de abajo.', position: 'bottom' },
         { target: '[data-help="pn-reports-help"]', title: 'Centro de Reportes', text: 'Un solo lugar para exportar cada CSV/PDF del laboratorio — lee la descripción de cada fila.', position: 'bottom', tab: 'pn-reports' },
         { target: '[data-help="pn-alerts-help"]', title: 'Alertas', text: 'Todas las alertas activas de todos los módulos, incluidas las de consumo y SPC.', position: 'bottom', tab: 'pn-alerts' },
         { target: '[data-help="pn-projects-help"]', title: 'Proyectos', text: 'Da seguimiento a reparaciones o proyectos de inversión: pasos, responsables, fechas y una línea de tiempo — como un tablero de Loop, pero adentro del laboratorio.', position: 'bottom', tab: 'pn-projects' },

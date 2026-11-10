@@ -5579,6 +5579,15 @@ button.tp-blk:hover { border-color: var(--border-strong); }
 .ui-tabgroup:hover { color: var(--text); }
 .ui-tabgroup.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
 .tp-tab.ui-tg-hidden { display: none !important; }
+/* [3.34.0] Pestañas fusionadas: la sección oculta sigue en el DOM (la lee el lanzador). */
+.tp-tab.ui-merged-hidden { display: none !important; }
+.ui-subtabs { display: flex; gap: var(--space-xs); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 0 var(--space-md); padding: 0 var(--space-2xs); }
+.ui-subtabs[hidden] { display: none !important; }
+.ui-subtabs::-webkit-scrollbar { display: none; }
+.ui-subtab { flex: 0 0 auto; min-height: var(--target-min); padding: var(--space-xs) var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-full, 999px); background: var(--surface); color: var(--muted); font-weight: 600; font-size: var(--fs-sm); cursor: pointer; white-space: nowrap; transition: background-color var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast); }
+.ui-subtab:hover { color: var(--text); }
+.ui-subtab.active { background: var(--text); border-color: var(--text); color: var(--surface); }
+.ui-tabgroups[hidden] { display: none !important; }
 @media (max-width: 480px) {
   .ui-tabgroup { flex: 1 0 auto; padding: var(--space-xs) var(--space-sm); font-size: var(--fs-sm); }
 }
