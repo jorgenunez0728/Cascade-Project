@@ -74,6 +74,7 @@ js/
   vets.js               ← Importar la prueba de STARS VETS: lector .xlsx propio, política de verificaciones, OBFCM (~1,220 lines)
   historico.js          ← Pruebas anteriores a la plataforma: importar VETS por lote + confirmación del aprobador (~620 lines)
   opcards.js            ← Operación en tarjetas (teléfono): una pregunta por pantalla (~420 lines)
+  pasos.js              ← Liberación y Aprobación por pasos (teléfono): las tarjetas de siempre, una a la vez (~300 lines)
   handoff.js            ← Avisos de relevo: "te toca a ti" (aprobar, devuelto, aprobado, soak) (~280 lines)
   ficha.js              ← Ficha universal: estado, acción siguiente, relaciones e historia de cualquier cosa (~460 lines)
   relevo.js             ← Desde tu última vez: lo que cambió mientras no estabas (~380 lines)
@@ -199,7 +200,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → **`uiflow.js`** → `cop15.js` → `inventory.js` → **`cuarto.js`** → **`sitio.js`** → **`conslist.js`** → `testplan.js` → **`bloques.js`** → **`resumen.js`** → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`normas.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`copreport.js`** → **`cophq.js`** → **`homolog.js`** → **`vets.js`** → **`historico.js`** → **`review.js`** → **`opcards.js`** → **`pasos.js`** → **`handoff.js`** → **`ficha.js`** → **`relevo.js`** → **`momentos.js`** → **`normas.js`** → **`digest.js`** → **`xlsxw.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -4426,4 +4427,28 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
   secas no llevan candado: los llama el propio sync. Un botón nuevo que los dispare a mano pasa
   por esas envolturas.
 - Nunca mostrar en la app instrucciones de consola de Firebase ni reglas de ejemplo.
+
+## 3.37.0 — Liberar y aprobar por pasos (`js/pasos.js`)
+
+- **Los pasos son las tarjetas de Liberación y Aprobación en su lugar**, marcadas con
+  `data-step="clave"` en `index.html` (una tarjeta puede ser de dos pasos: el checklist es
+  `objetos evidencia`). `LIB_STEP_DEFS` es el orden y el título. Nunca mover un campo a otra
+  capa: los candados y `cascadeRepaintKeeping` leen esos elementos.
+- **Toda tarjeta nueva de `#lib-content` o `#appr-content` lleva `data-step`**, o en el
+  teléfono no se ve en ningún paso (`body.lib-steps` esconde lo que no es `.ls-current`).
+- **`pasos.js` no escribe en ningún vehículo ni llama a `submitToApproval` /
+  `approveAndArchive`** (`tests/pasos.node.js` lo vigila). "Siguiente" solo cambia de paso.
+- Lo pendiente de un paso se LEE de la regla que ya decide: `_libVerifyReleaseValues`,
+  `libFailDeclWhy`, `releaseChecklistRows`, y en Aprobación el `data-why` del botón
+  (`uiExplainDisabled`). Un candado nuevo se refleja solo si vive en una de esas.
+- **En Aprobación nada de lo que cop15.js muestra después de coincidir sale a un paso
+  propio** (decisión de falla, comparación con la familia): verlo antes rompe el doble ciego.
+- Un repintado (`loadRelease` / `loadApproval` por cambio remoto o VETS) conserva el paso
+  (`_lsKeep`). Si el vehículo deja el estado del modo (enviado, aprobado, devuelto), se sale
+  solo (`_lsRefresh`, escucha `data:saved`).
+- La preferencia es `uiPref('cardMode')`, la misma de Operación. En automático entra solo en
+  teléfono, con cualquier rol (Operación en automático sigue siendo solo Practicante y Técnico).
+- El gesto global de deslizar entre plataformas no corre con `body.op-cards` ni
+  `body.lib-steps`.
+- Orden de carga: `… review.js → opcards.js → pasos.js → handoff.js …`.
 

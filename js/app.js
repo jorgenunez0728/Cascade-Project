@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.36.0';
+var APP_VERSION = '3.37.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,12 @@ var APP_VERSION = '3.36.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.37.0', date: '10 nov 2026', title: 'Liberar y aprobar en el teléfono, un paso a la vez',
+      bullets: ['En el teléfono, Liberación se recorre en pasos: Resumen, Resultados de emisiones, Objetos a retirar, Evidencia documental y Enviar. Antes era una sola página de más de cinco pantallas de alto.',
+                'Aprobación igual: Resumen, Verificación y Aprobar o devolver.',
+                'Arriba se ve en qué paso vas y cuáles tienen algo pendiente (en ámbar). El último paso dice qué falta y un toque te lleva ahí.',
+                'Las tarjetas, los botones y las reglas son los de siempre: solo cambia cómo se recorren. En computadora nada cambia.',
+                'La ✕ vuelve a la pantalla completa; el botón 📇 Un paso a la vez regresa al modo por pasos. Es la misma preferencia que Operación en tarjetas.'] },
     { version: '3.36.0', date: '10 nov 2026', title: 'Las pantallas de la nube, en claro',
       bullets: ['El indicador de sincronización de la barra de arriba abre ☁️ Nube del laboratorio: dice si este equipo está al día, cuántos cambios faltan por subir y qué hacer (reintentar, conectar, revisar, bajar los datos).',
                 'Muestra además el espacio usado en la nube, el respaldo diario, el nombre de este equipo y la cuenta del laboratorio.',
@@ -1652,8 +1658,10 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.12.0';
+var CASCADE_VERSION = '4.12.1';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.12.1', date: '10 nov 2026', app: '3.37.0', title: 'Liberación y Aprobación por pasos en el teléfono',
+      bullets: ['En el teléfono, Liberación y Aprobación se recorren un paso a la vez. El procedimiento, los candados y la hoja F05 no cambian.'] },
     { version: '4.12.0', date: '28 oct 2026', app: '3.25.0', title: 'Una prueba que falla se registra',
       bullets: ['Con un gas sobre el límite, Liberación ya no se bloquea: se envía como FALLA confirmando que se releyó el reporte y escribiendo qué se observó.',
                 'Quien aprueba, después del doble ciego, decide: falla válida (cuenta para CoP) o prueba inválida (no cuenta, con su causa).',
@@ -7008,6 +7016,9 @@ function generateWeeklyStatusPDF(opts) {
         if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'CANVAS' || tag === 'BUTTON') return;
         // Don't track if inside a modal
         if (e.target.closest('#configModal, #invModal, #fbModal, .modal-overlay')) return;
+        // [3.37.0] En tarjetas o por pasos, deslizar es de ESA pantalla: un gesto largo
+        // cambiaba de tarjeta y además de plataforma (que saca del modo).
+        if (document.body.classList.contains('op-cards') || document.body.classList.contains('lib-steps')) return;
         // Don't track if inside horizontal scrollable areas (tabs)
         if (e.target.closest('.tp-tabs, .tabs')) return;
 

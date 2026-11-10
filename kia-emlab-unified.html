@@ -6020,6 +6020,38 @@ button.tp-blk:hover { border-color: var(--border-strong); }
 .ui-tabgroup:hover { color: var(--text); }
 .ui-tabgroup.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
 .tp-tab.ui-tg-hidden { display: none !important; }
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [3.37.0] LIBERAR Y APROBAR POR PASOS (js/pasos.js)                       */
+/* Las tarjetas son las de siempre, en su lugar: aquí solo se esconde todo  */
+/* lo demás. Encabezado y pie son los de Operación en tarjetas (.oc-*).     */
+/* ══════════════════════════════════════════════════════════════════════ */
+.ls-toggle { display: none; margin-bottom: var(--space-md); }
+@media (max-width: 640px) { .ls-toggle { display: inline-flex; } }
+body.lib-steps { padding-top: 104px; padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+body.lib-steps .platform-bar, body.lib-steps .ui-bar, body.lib-steps .bottom-nav,
+body.lib-steps .bug-fab, body.lib-steps #bug-fab, body.lib-steps #v7-next-step-banner,
+body.lib-steps .vcl-toggle, body.lib-steps .vcl-panel,
+body.lib-steps #platform-cop15 > .topbar, body.lib-steps #platform-cop15 .tabs,
+body.lib-steps #panel-liberacion > :not(#lib-panel-liberador):not(#lib-panel-aprobador),
+body.lib-steps #lib-panel-liberador > :not(#lib-content),
+body.lib-steps #lib-panel-aprobador > :not(#appr-content),
+body.lib-steps #lib-content > :not(.ls-current),
+body.lib-steps #appr-content > :not(.ls-current),
+body.lib-steps #lib-checklist-card[data-ls-part="objetos"] .relcl-group:nth-child(2),
+body.lib-steps #lib-checklist-card[data-ls-part="objetos"] .relcl-who,
+body.lib-steps #lib-checklist-card[data-ls-part="evidencia"] .relcl-group:nth-child(1) { display: none !important; }
+body.lib-steps .ls-current { max-width: 560px; margin-left: auto !important; margin-right: auto !important; }
+body.lib-steps .ls-current.card, body.lib-steps .ls-current > .card { box-shadow: none; }
+body.lib-steps .relcl-opt { min-height: var(--target-min); }
+.ls-foot { grid-template-columns: auto 1fr; }
+body.ls-at-last .ls-foot { grid-template-columns: auto; }
+body.ls-at-last .ls-foot .oc-save { display: none; }
+.oc-seg.ls-seg-pend .oc-seg-bar { background: var(--warn-bg); outline: 1px solid var(--warn-fill); }
+.oc-seg.ls-seg-pend .oc-seg-fill { background: var(--warn-fill); }
+.ls-pending { margin: 0 0 var(--space-md); padding: var(--space-md); border: 1px solid var(--warn-fill); background: var(--warn-bg); border-radius: var(--radius-lg); }
+.ls-pending-title { font-weight: 700; font-size: var(--fs-sm); margin-bottom: var(--space-xs); }
+.ls-pending-row { display: block; width: 100%; text-align: left; min-height: var(--target-min); }
+
 /* [3.36.0] ☁️ Nube: las pantallas de sincronización en el tema de la app.
    z 9600: encima de uiFlow (9500) y de la ficha (9400), debajo de toasts y diálogos (9999). */
 .fb-overlay { position: fixed; inset: 0; z-index: 9600; overflow-y: auto; background: rgba(15, 23, 42, 0.45); padding: var(--space-lg) var(--space-md); }
@@ -8931,14 +8963,16 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
             </div>
             <div id="lib-content" style="display:none;">
                 <!-- 2.1.0: aviso de rol (lo llena _cascadeRoleNote en loadRelease) -->
-                <div class="alert alert-warning cascade-role-note" id="lib-role-note" style="display:none;"></div>
-                <div class="alert alert-success" id="releaseInfo"></div>
-                <div class="card">
+                <!-- [3.37.0] data-step: cada tarjeta es un paso en el teléfono (js/pasos.js). -->
+                <button type="button" class="btn-secondary ls-toggle" onclick="libStepsEnter('liberador', { remember: true })" title="Un paso por pantalla, ideal en el teléfono">📇 Un paso a la vez</button>
+                <div class="alert alert-warning cascade-role-note" id="lib-role-note" data-step="resumen" style="display:none;"></div>
+                <div class="alert alert-success" id="releaseInfo" data-step="resumen"></div>
+                <div class="card" data-step="resumen">
                     <div class="card-title">📋 Resumen de Prueba</div>
                     <div id="testSummary"></div>
                 </div>
                 <!-- Gas results entry for emissions vehicles -->
-                <div id="lib-gas-entry-card" style="display:none;">
+                <div id="lib-gas-entry-card" data-step="resultados" style="display:none;">
                     <div class="card">
                         <div class="card-title" data-help="lib-gas-help">⚗️ Resultados de Emisiones</div>
                         <div class="vets-attach-row">
@@ -8951,11 +8985,11 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
                     </div>
                 </div>
                 <!-- Checklist COP15-F05: objetos a retirar + evidencia documental -->
-                <div id="lib-checklist-card" class="card" style="display:none;">
+                <div id="lib-checklist-card" class="card" data-step="objetos evidencia" style="display:none;">
                     <div class="card-title" data-help="lib-checklist-help">🧾 Checklist de Liberación (COP15-F05)</div>
                     <div id="lib-checklist-content"></div>
                 </div>
-                <div class="card">
+                <div class="card" data-step="enviar">
                     <div class="card-title">✅ Acción</div>
                     <div id="lib-action-note" class="lib-action-note" style="display:none;"></div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -8988,13 +9022,14 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
                 </select>
             </div>
             <div id="appr-content" style="display:none;">
-                <div class="alert alert-warning cascade-role-note" id="appr-role-note" style="display:none;"></div>
-                <div class="alert alert-success" id="approvalInfo"></div>
-                <div class="card">
+                <button type="button" class="btn-secondary ls-toggle" onclick="libStepsEnter('aprobador', { remember: true })" title="Un paso por pantalla, ideal en el teléfono">📇 Un paso a la vez</button>
+                <div class="alert alert-warning cascade-role-note" id="appr-role-note" data-step="resumen" style="display:none;"></div>
+                <div class="alert alert-success" id="approvalInfo" data-step="resumen"></div>
+                <div class="card" data-step="resumen">
                     <div class="card-title">📋 Resumen de Prueba</div>
                     <div id="approvalSummary"></div>
                 </div>
-                <div class="card">
+                <div class="card" data-step="verificar">
                     <div class="card-title" data-help="lib-gas-help" id="appr-card-title">⚗️ Verificación de Aprobador</div>
                     <p id="appr-card-hint" style="font-size:12px;color:var(--muted);margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
                     <div id="appr-gas-entry-content"></div>
@@ -9003,7 +9038,7 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
                     <div id="appr-family-check" style="display:none;"></div>
                     <div id="appr-fail-box" style="display:none;"></div>
                 </div>
-                <div class="card">
+                <div class="card" data-step="decidir">
                     <div class="card-title">✅ Acción</div>
                     <div id="appr-vets-note" class="lib-action-note" style="display:none;"></div>
                     <button class="btn-primary" id="approve-archive-btn" onclick="approveAndArchive()" style="width:100%;" disabled>
@@ -10643,10 +10678,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202611102233';
+var APP_BUILD = '202611102253';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '903c01b3dcdc7cd6a12e152057fe0d1c25847054';
+var APP_COMMIT = '2e01d25639abe83a91aa5f11eb101d556922c274';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10654,7 +10689,7 @@ var APP_COMMIT = '903c01b3dcdc7cd6a12e152057fe0d1c25847054';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.36.0';
+var APP_VERSION = '3.37.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10662,6 +10697,12 @@ var APP_VERSION = '3.36.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.37.0', date: '10 nov 2026', title: 'Liberar y aprobar en el teléfono, un paso a la vez',
+      bullets: ['En el teléfono, Liberación se recorre en pasos: Resumen, Resultados de emisiones, Objetos a retirar, Evidencia documental y Enviar. Antes era una sola página de más de cinco pantallas de alto.',
+                'Aprobación igual: Resumen, Verificación y Aprobar o devolver.',
+                'Arriba se ve en qué paso vas y cuáles tienen algo pendiente (en ámbar). El último paso dice qué falta y un toque te lleva ahí.',
+                'Las tarjetas, los botones y las reglas son los de siempre: solo cambia cómo se recorren. En computadora nada cambia.',
+                'La ✕ vuelve a la pantalla completa; el botón 📇 Un paso a la vez regresa al modo por pasos. Es la misma preferencia que Operación en tarjetas.'] },
     { version: '3.36.0', date: '10 nov 2026', title: 'Las pantallas de la nube, en claro',
       bullets: ['El indicador de sincronización de la barra de arriba abre ☁️ Nube del laboratorio: dice si este equipo está al día, cuántos cambios faltan por subir y qué hacer (reintentar, conectar, revisar, bajar los datos).',
                 'Muestra además el espacio usado en la nube, el respaldo diario, el nombre de este equipo y la cuenta del laboratorio.',
@@ -11831,8 +11872,10 @@ var APP_VERSION_HISTORY = [
 // de la plataforma. MAYOR = cambia cómo se aprueba (3 Power Automate, 4 doble ciego);
 // MENOR = un paso, campo o regla de la prueba; PARCHE = lo demás. Sube solo cuando una ronda
 // toca el procedimiento. "1.0615" es el archivo original. tests/version.node.js lo verifica.
-var CASCADE_VERSION = '4.12.0';
+var CASCADE_VERSION = '4.12.1';
 var CASCADE_VERSION_HISTORY = [
+    { version: '4.12.1', date: '10 nov 2026', app: '3.37.0', title: 'Liberación y Aprobación por pasos en el teléfono',
+      bullets: ['En el teléfono, Liberación y Aprobación se recorren un paso a la vez. El procedimiento, los candados y la hoja F05 no cambian.'] },
     { version: '4.12.0', date: '28 oct 2026', app: '3.25.0', title: 'Una prueba que falla se registra',
       bullets: ['Con un gas sobre el límite, Liberación ya no se bloquea: se envía como FALLA confirmando que se releyó el reporte y escribiendo qué se observó.',
                 'Quien aprueba, después del doble ciego, decide: falla válida (cuenta para CoP) o prueba inválida (no cuenta, con su causa).',
@@ -11955,14 +11998,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202611102233' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202611102253' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202611102233' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202611102253' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -11978,7 +12021,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202611102233' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202611102253' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -17187,6 +17230,9 @@ function generateWeeklyStatusPDF(opts) {
         if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'CANVAS' || tag === 'BUTTON') return;
         // Don't track if inside a modal
         if (e.target.closest('#configModal, #invModal, #fbModal, .modal-overlay')) return;
+        // [3.37.0] En tarjetas o por pasos, deslizar es de ESA pantalla: un gesto largo
+        // cambiaba de tarjeta y además de plataforma (que saca del modo).
+        if (document.body.classList.contains('op-cards') || document.body.classList.contains('lib-steps')) return;
         // Don't track if inside horizontal scrollable areas (tabs)
         if (e.target.closest('.tp-tabs, .tabs')) return;
 
@@ -74193,7 +74239,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202611102233' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202611102253' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -91503,6 +91549,361 @@ function opCardsGoToKey(key) {
 })();
 
 
+// @@module js/pasos.js
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [3.37.0] LIBERAR Y APROBAR POR PASOS — una cosa a la vez             ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+//
+// Operación va en tarjetas en el teléfono desde 2.13.0 (js/opcards.js). Al terminar, el
+// flujo caía en Liberación: una página de más de cinco pantallas de alto (resumen, VETS,
+// gases, 14 filas de checklist, acción, línea de tiempo) donde el botón de enviar queda
+// lejos de lo que lo bloquea. Y desde 2.20.0 libera el Técnico, que trabaja en teléfono.
+//
+// Aquí Liberación y Aprobación se recorren por PASOS, con el mismo lenguaje de Operación
+// (encabezado con segmentos, pie con ‹ y Siguiente ▸, deslizar solo navega).
+//
+// REGLAS:
+//  - NO es otra pantalla. Los pasos son las MISMAS tarjetas de siempre, en su lugar: cada
+//    una lleva `data-step` en index.html y el resto se esconde con CSS (body.lib-steps).
+//    Mover un campo a otra capa rompería los candados y el repintado por cambio remoto.
+//  - Este archivo NO escribe en ningún vehículo y NO decide nada: los candados siguen en
+//    submitToApproval / approveAndArchive y en las reglas PURAS de cop15.js. Lo pendiente
+//    se LEE de esas mismas reglas (_libVerifyReleaseValues, releaseChecklistRows) y del
+//    motivo del botón (uiExplainDisabled).
+//  - Avanzar nunca afirma un dato: "Siguiente" solo cambia de paso.
+//  - En Aprobación la decisión de una falla y la comparación contra la familia siguen
+//    dentro del paso de verificación, donde cop15.js las muestra SOLO después de que los
+//    valores coinciden (3.25.0). Sacarlas a un paso propio las haría visibles antes.
+//  - `libStepsFrom` es PURA.
+
+var LIB_STEP_DEFS = {
+    liberador: { root: 'lib-content', select: 'releaseVehSelect', status: 'ready-release', label: 'Liberación',
+        steps: [ { key: 'resumen', title: 'Resumen de la prueba' },
+                 { key: 'resultados', title: 'Resultados de emisiones' },
+                 { key: 'objetos', title: 'Objetos a retirar' },
+                 { key: 'evidencia', title: 'Evidencia documental' },
+                 { key: 'enviar', title: 'Enviar a aprobación' } ] },
+    aprobador: { root: 'appr-content', select: 'approvalVehSelect', status: 'pending-approval', label: 'Aprobación',
+        steps: [ { key: 'resumen', title: 'Resumen de la prueba' },
+                 { key: 'verificar', title: 'Verificación' },
+                 { key: 'decidir', title: 'Aprobar o devolver' } ] }
+};
+var LIB_STEP_SWIPE_PX = 60;
+
+var _ls = null;        // {mode, vehicleId, steps, idx}
+var _lsKeep = null;    // {mode, vehicleId, key}: el paso que se veía, para retomarlo tras un repintado
+
+/**
+ * Pasos visibles con lo que les falta. PURA.
+ * defs: [{key, title}] · facts: {key: {visible, pending, why}}
+ * → {steps:[{key, title, index, pending, why}], pending:[índices], firstPending, start}
+ * `start` = por dónde empezar: vehículo intacto → el primer paso; a medias → el primer
+ * pendiente; nada pendiente → el último (enviar / decidir).
+ */
+function libStepsFrom(defs, facts) {
+    facts = facts || {};
+    var steps = (defs || []).filter(function(d) { return d && facts[d.key] && facts[d.key].visible; }).map(function(d, i) {
+        var f = facts[d.key];
+        return { key: d.key, title: d.title, index: i, pending: !!f.pending, why: f.pending ? String(f.why || '') : '' };
+    });
+    var pending = steps.filter(function(s) { return s.pending; }).map(function(s) { return s.index; });
+    var canPend = steps.filter(function(s) { return facts[s.key].canPend; }).length;
+    var start = !steps.length ? 0
+        : !pending.length ? steps.length - 1
+        : (canPend > 0 && pending.length === canPend) ? 0
+        : pending[0];
+    return { steps: steps, pending: pending, firstPending: pending.length ? pending[0] : -1, start: start };
+}
+
+/** ¿Se usa el modo por pasos? PURA. pref: 'auto' | true | false. En automático, solo en teléfono. */
+function libStepsWanted(pref, isPhone) {
+    if (pref === true || pref === 'on') return true;
+    if (pref === false || pref === 'off') return false;
+    return !!isPhone;
+}
+
+// ── Lectura del estado (nada se escribe) ─────────────────────────────────
+
+function _lsRoot(mode) { return document.getElementById(LIB_STEP_DEFS[mode].root); }
+function _lsVehicle() { return _ls && (db.vehicles || []).find(function(v) { return v.id == _ls.vehicleId; }); }
+function _lsEls(mode, key) {
+    var root = _lsRoot(mode);
+    return root ? [].slice.call(root.querySelectorAll('[data-step~="' + key + '"]')) : [];
+}
+/** Un paso existe si alguna de sus tarjetas se muestra en el formulario completo. */
+function _lsVisible(mode, key) {
+    return _lsEls(mode, key).some(function(el) { return el.style.display !== 'none'; });
+}
+
+function _lsFacts(mode, vehicle) {
+    var facts = {};
+    LIB_STEP_DEFS[mode].steps.forEach(function(d) { facts[d.key] = { visible: _lsVisible(mode, d.key), pending: false, why: '', canPend: false }; });
+    if (!vehicle) return facts;
+    if (mode === 'liberador') {
+        // Resultados: la misma regla que el botón y que submitToApproval.
+        if (facts.resultados.visible) {
+            facts.resultados.canPend = true;
+            try {
+                var regName = _libGetVehicleRegulation(vehicle);
+                var profile = regName ? _libCaptureProfileFor(vehicle, regName) : null;
+                if (!profile) { facts.resultados.pending = true; facts.resultados.why = 'elige contra qué regulación comparar'; }
+                else {
+                    var rv = _libVerifyReleaseValues(profile, _libCollectGasValues(profile, 'lib-gas-entry-content'));
+                    if (rv.missing.length) { facts.resultados.pending = true; facts.resultados.why = 'falta ' + rv.missing.join(', '); }
+                    else if (rv.failing.length && typeof libFailDeclWhy === 'function') {
+                        var w = libFailDeclWhy(rv.failing, (typeof _libFailDecl !== 'undefined' && _libFailDecl) ? _libFailDecl[vehicle.id] : null);
+                        if (w) { facts.resultados.pending = true; facts.resultados.why = 'declara la falla de ' + rv.failing.join(', '); }
+                    }
+                }
+            } catch (e) { /* sin perfil o sin tabla: el botón de enviar dirá el motivo */ }
+        }
+        // Checklist: las mismas filas que valida submitToApproval, por grupo.
+        try {
+            var cl = releaseChecklistRows(vehicle);
+            [['objetos', cl.objects], ['evidencia', cl.docs]].forEach(function(p) {
+                if (!facts[p[0]].visible) return;
+                facts[p[0]].canPend = true;
+                var falta = p[1].filter(function(r) { return !r.value && r.blocking !== false; });
+                if (falta.length) { facts[p[0]].pending = true; facts[p[0]].why = falta.length === 1 ? 'falta ' + falta[0].label : 'faltan ' + falta.length; }
+            });
+        } catch (e) {}
+    } else {
+        // Aprobación: lo que falta es exactamente el motivo del botón de aprobar.
+        var btn = document.getElementById('approve-archive-btn');
+        if (facts.verificar.visible && btn && btn.disabled) {
+            facts.verificar.canPend = true;
+            facts.verificar.pending = true;
+            facts.verificar.why = btn.getAttribute('data-why') || 'falta verificar';
+        } else if (facts.verificar.visible) facts.verificar.canPend = true;
+    }
+    return facts;
+}
+
+function _lsIsPhone() {
+    try { return window.matchMedia('(max-width: 640px) and (pointer: coarse)').matches; } catch (e) { return false; }
+}
+
+// ── Entrar / salir ───────────────────────────────────────────────────────
+
+/** Lo llaman loadRelease / loadApproval: entra solo si corresponde. */
+function libStepsAuto(mode) {
+    var pref = (typeof uiPref === 'function') ? uiPref('cardMode') : 'auto';
+    if (libStepsWanted(pref, _lsIsPhone())) libStepsEnter(mode);
+    else if (_ls) libStepsExit({ keepPref: true });
+}
+
+function libStepsEnter(mode, opts) {
+    opts = opts || {};
+    var def = LIB_STEP_DEFS[mode];
+    var root = def && _lsRoot(mode);
+    if (!root || root.style.display === 'none' || !activeVehicleId) return false;
+    var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || vehicle.status !== def.status) return false;
+    if (_ls) libStepsExit({ keepPref: true });
+    if (opts.remember && typeof uiPref === 'function') uiPref('cardMode', true);
+    _ls = { mode: mode, vehicleId: vehicle.id, steps: [], idx: 0 };
+    document.body.classList.add('lib-steps');
+    _lsChrome();
+    var r = _lsRebuild();
+    var at = r.start;
+    if (_lsKeep && _lsKeep.mode === mode && _lsKeep.vehicleId == vehicle.id) {
+        var k = r.steps.filter(function(s) { return s.key === _lsKeep.key; })[0];
+        if (k) at = k.index;
+    }
+    _lsKeep = null;
+    _lsGo(at, 1);
+    return true;
+}
+
+function libStepsExit(opts) {
+    opts = opts || {};
+    if (!_ls) return;
+    [].slice.call(document.querySelectorAll('.ls-current')).forEach(function(el) { el.classList.remove('ls-current', 'oc-in', 'oc-in-back'); });
+    var card = document.getElementById('lib-checklist-card'); if (card) card.removeAttribute('data-ls-part');
+    ['ls-head', 'ls-foot', 'ls-pending'].forEach(function(id) { var x = document.getElementById(id); if (x) x.remove(); });
+    document.body.classList.remove('lib-steps', 'ls-at-last');
+    _ls = null;
+    if (!opts.keepPref && typeof uiPref === 'function') {
+        uiPref('cardMode', false);
+        if (typeof showToast === 'function') showToast('Pantalla completa. Para volver a un paso a la vez: botón 📇 arriba.', 'info', 5000);
+    }
+}
+
+function libStepsActive() { return !!_ls; }
+function libStepsCurrentKey() { return (_ls && _ls.steps[_ls.idx]) ? _ls.steps[_ls.idx].key : ''; }
+
+// ── Pintar ───────────────────────────────────────────────────────────────
+
+function _lsChrome() {
+    if (!document.getElementById('ls-head')) {
+        var h = document.createElement('div');
+        h.id = 'ls-head'; h.className = 'oc-head';
+        document.body.appendChild(h);
+    }
+    if (!document.getElementById('ls-foot')) {
+        var f = document.createElement('div');
+        f.id = 'ls-foot'; f.className = 'oc-foot ls-foot';
+        f.innerHTML = '<button type="button" class="oc-back" onclick="libStepsBack()" aria-label="Paso anterior">‹</button>' +
+                      '<button type="button" class="oc-save" onclick="libStepsNext()">Siguiente ▸</button>';
+        document.body.appendChild(f);
+        _lsWire();
+    }
+}
+
+function _lsRebuild() {
+    var r = libStepsFrom(LIB_STEP_DEFS[_ls.mode].steps, _lsFacts(_ls.mode, _lsVehicle()));
+    _ls.steps = r.steps;
+    return r;
+}
+
+function _lsHeader() {
+    var head = document.getElementById('ls-head');
+    if (!head || !_ls) return;
+    var v = _lsVehicle() || {};
+    var vin = String(v.vin || '');
+    var tail = vin.length > 8 ? '…' + vin.slice(-8) : vin;
+    var def = LIB_STEP_DEFS[_ls.mode];
+    var s = _ls.steps[_ls.idx] || {};
+    var segs = _ls.steps.map(function(st, i) {
+        return '<button type="button" class="oc-seg' + (i === _ls.idx ? ' is-here' : '') + (st.pending ? ' ls-seg-pend' : '') + '" style="flex:1" ' +
+            'onclick="libStepsGo(' + i + ')" aria-label="Ir a ' + escapeHtml(st.title) + (st.pending ? ' (pendiente)' : '') + '">' +
+            '<span class="oc-seg-bar"><span class="oc-seg-fill" style="transform:scaleX(' + (i <= _ls.idx ? 1 : 0) + ')"></span></span></button>';
+    }).join('');
+    head.innerHTML =
+        '<div class="oc-head-row">' +
+            '<button type="button" class="oc-x" onclick="libStepsExit()" aria-label="Salir a la pantalla completa">✕</button>' +
+            '<div class="oc-head-what"><b>' + escapeHtml(tail) + '</b> · ' + def.label +
+                '<div class="oc-head-sub">' + escapeHtml((s.title || '') + ' · ' + (_ls.idx + 1) + ' de ' + _ls.steps.length) + '</div></div>' +
+            (typeof fbPresenceChipHTML === 'function' && v.id !== undefined ? fbPresenceChipHTML('veh:' + v.id, { here: true, screen: def.label }) : '') +
+            (typeof fbVehChipHTML === 'function' ? fbVehChipHTML(v.id !== undefined ? v : null, { compact: true }) : '') +
+        '</div>' +
+        '<div class="oc-segs">' + segs + '</div>';
+}
+
+/** En el último paso: lo que falta, con un toque para ir a cada cosa. */
+function _lsPendingNote() {
+    var old = document.getElementById('ls-pending');
+    if (!_ls) { if (old) old.remove(); return; }
+    var last = _ls.idx === _ls.steps.length - 1;
+    var pend = _ls.steps.filter(function(s) { return s.pending; });
+    if (!last || !pend.length) { if (old) old.remove(); return; }
+    var host = _lsEls(_ls.mode, _ls.steps[_ls.idx].key).filter(function(el) { return el.classList.contains('card'); })[0];
+    if (!host) return;
+    var box = old || document.createElement('div');
+    box.id = 'ls-pending'; box.className = 'ls-pending';
+    box.innerHTML = '<div class="ls-pending-title">Antes de ' + (_ls.mode === 'liberador' ? 'enviar' : 'aprobar') + ' falta:</div>' +
+        pend.map(function(s) {
+            return '<button type="button" class="miss-link ls-pending-row" onclick="libStepsGo(' + s.index + ')">' + escapeHtml(s.title) +
+                   (s.why ? ' <span class="u-muted">· ' + escapeHtml(s.why) + '</span>' : '') + ' ›</button>';
+        }).join('');
+    if (!old) host.insertBefore(box, host.children[1] || null);
+}
+
+function _lsGo(i, dir) {
+    if (!_ls || !_ls.steps.length) return;
+    [].slice.call(document.querySelectorAll('.ls-current')).forEach(function(el) { el.classList.remove('ls-current', 'oc-in', 'oc-in-back'); });
+    _ls.idx = Math.max(0, Math.min(_ls.steps.length - 1, i));
+    var s = _ls.steps[_ls.idx];
+    _lsEls(_ls.mode, s.key).forEach(function(el) { el.classList.add('ls-current', dir < 0 ? 'oc-in-back' : 'oc-in'); });
+    // El checklist es una sola tarjeta con dos grupos: cada grupo es un paso.
+    var card = document.getElementById('lib-checklist-card');
+    if (card) { if (s.key === 'objetos' || s.key === 'evidencia') card.setAttribute('data-ls-part', s.key); else card.removeAttribute('data-ls-part'); }
+    document.body.classList.toggle('ls-at-last', _ls.idx === _ls.steps.length - 1);
+    var back = document.querySelector('#ls-foot .oc-back');
+    if (back) back.disabled = _ls.idx === 0;
+    _lsHeader();
+    _lsPendingNote();
+    try { window.scrollTo(0, 0); } catch (e) {}
+}
+
+/** Lo que cambió en pantalla (un gas tecleado, una fila del checklist): se vuelve a leer. */
+function _lsRefresh() {
+    if (!_ls) return;
+    var root = _lsRoot(_ls.mode), v = _lsVehicle();
+    // El vehículo se envió, se aprobó, se devolvió o se cerró: ya no hay pasos que recorrer.
+    if (!root || root.style.display === 'none' || !v || v.status !== LIB_STEP_DEFS[_ls.mode].status) { libStepsExit({ keepPref: true }); return; }
+    var key = libStepsCurrentKey();
+    var r = _lsRebuild();
+    var same = r.steps.filter(function(s) { return s.key === key; })[0];
+    if (!same) { _lsGo(Math.min(_ls.idx, r.steps.length - 1), 1); return; }
+    _ls.idx = same.index;
+    _lsHeader();
+    _lsPendingNote();
+}
+var _lsRefreshT = null;
+function _lsRefreshSoon() { clearTimeout(_lsRefreshT); _lsRefreshT = setTimeout(_lsRefresh, 150); }
+
+// ── Acciones ─────────────────────────────────────────────────────────────
+
+function libStepsNext() { if (_ls) { _lsRebuild(); _lsGo(_ls.idx + 1, 1); } }
+function libStepsBack() { if (_ls && _ls.idx > 0) { _lsRebuild(); _lsGo(_ls.idx - 1, -1); } }
+function libStepsGo(i) { if (_ls) { _lsRebuild(); _lsGo(i, i >= _ls.idx ? 1 : -1); } }
+
+function _lsWire() {
+    if (window._lsWired) return;
+    window._lsWired = true;
+    // Deslizar SOLO navega.
+    var x0 = null, y0 = null;
+    document.addEventListener('touchstart', function(e) {
+        if (!_ls || !e.touches || e.touches.length !== 1) { x0 = null; return; }
+        if (e.target.closest && e.target.closest('#ls-head, #ls-foot, .ui-num-row, input, select, textarea, canvas, .u-xscroll, #globalModal, .modal-overlay')) { x0 = null; return; }
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function(e) {
+        if (!_ls || x0 === null || !e.changedTouches) return;
+        var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+        x0 = null;
+        if (Math.abs(dx) < LIB_STEP_SWIPE_PX || Math.abs(dx) < 2 * Math.abs(dy)) return;
+        if (dx < 0) libStepsNext(); else libStepsBack();
+    }, { passive: true });
+    // Lo que se teclea o se toca cambia lo pendiente.
+    ['input', 'change', 'click'].forEach(function(ev) {
+        document.addEventListener(ev, function(e) {
+            if (!_ls) return;
+            var root = _lsRoot(_ls.mode);
+            if (root && e.target && root.contains(e.target)) _lsRefreshSoon();
+        }, true);
+    });
+    window.addEventListener('data:saved', function() { if (_ls) _lsRefreshSoon(); });
+}
+
+// ── Ganchos ──────────────────────────────────────────────────────────────
+// Se envuelven (patrón de opcards.js) en vez de tocar funciones largas con varias salidas.
+(function() {
+    if (typeof window === 'undefined') return;
+    function wrap(name, mode) {
+        var orig = window[name];
+        if (typeof orig !== 'function') return;
+        window[name] = function() {
+            // Un repintado (otro equipo cambió algo, se adjuntó VETS) no cambia de paso.
+            if (_ls) { _lsKeep = { mode: _ls.mode, vehicleId: _ls.vehicleId, key: libStepsCurrentKey() }; libStepsExit({ keepPref: true }); }
+            var r = orig.apply(this, arguments);
+            setTimeout(function() { try { libStepsAuto(mode); } catch (e) { void 0; } }, 60);
+            return r;
+        };
+    }
+    wrap('loadRelease', 'liberador');
+    wrap('loadApproval', 'aprobador');
+
+    var _origSub = window.libSwitchSubtab;
+    if (typeof _origSub === 'function') {
+        window.libSwitchSubtab = function() { if (_ls) libStepsExit({ keepPref: true }); return _origSub.apply(this, arguments); };
+    }
+    var _origSwitch = window.switchPlatform;
+    if (typeof _origSwitch === 'function') {
+        window.switchPlatform = function(platform) {
+            if (_ls && platform !== 'cop15') libStepsExit({ keepPref: true });
+            return _origSwitch.apply(this, arguments);
+        };
+    }
+    document.addEventListener('click', function(e) {
+        if (!_ls) return;
+        var t = e.target && e.target.closest && e.target.closest('#platform-cop15 .tab[data-tab]');
+        if (t && t.getAttribute('data-tab') !== 'liberacion') libStepsExit({ keepPref: true });
+    }, true);
+})();
+
+
 // @@module js/handoff.js
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [2.15.0] AVISOS DE RELEVO — "te toca a ti"                          ║
@@ -94588,7 +94989,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":10177,"mods":[[10180,"js/app.js",20729],[20733,"js/uiflow.js",21068],[21072,"js/cop15.js",32598],[32602,"js/inventory.js",40606],[40610,"js/cuarto.js",42740],[42744,"js/sitio.js",44927],[44931,"js/conslist.js",45539],[45543,"js/testplan.js",59146],[59150,"js/bloques.js",59778],[59782,"js/resumen.js",60191],[60195,"js/panel.js",65582],[65586,"js/projects.js",67875],[67879,"js/auth.js",68959],[68963,"js/signatures.js",69325],[69329,"js/firebase-sync.js",78033],[78037,"js/cop_validator.js",82987],[82991,"js/copreport.js",85141],[85145,"js/cophq.js",85955],[85959,"js/homolog.js",87856],[87860,"js/vets.js",89659],[89663,"js/historico.js",90577],[90581,"js/review.js",91050],[91054,"js/opcards.js",91503],[91507,"js/handoff.js",91786],[91790,"js/ficha.js",92291],[92295,"js/relevo.js",92675],[92679,"js/momentos.js",92816],[92820,"js/normas.js",93228],[93232,"js/digest.js",94160],[94164,"js/xlsxw.js",94544],[94548,"js/bugreport.js",95694]]};
+var BUG_LINE_MAP = {"tag":10212,"mods":[[10215,"js/app.js",20775],[20779,"js/uiflow.js",21114],[21118,"js/cop15.js",32644],[32648,"js/inventory.js",40652],[40656,"js/cuarto.js",42786],[42790,"js/sitio.js",44973],[44977,"js/conslist.js",45585],[45589,"js/testplan.js",59192],[59196,"js/bloques.js",59824],[59828,"js/resumen.js",60237],[60241,"js/panel.js",65628],[65632,"js/projects.js",67921],[67925,"js/auth.js",69005],[69009,"js/signatures.js",69371],[69375,"js/firebase-sync.js",78079],[78083,"js/cop_validator.js",83033],[83037,"js/copreport.js",85187],[85191,"js/cophq.js",86001],[86005,"js/homolog.js",87902],[87906,"js/vets.js",89705],[89709,"js/historico.js",90623],[90627,"js/review.js",91096],[91100,"js/opcards.js",91549],[91553,"js/pasos.js",91904],[91908,"js/handoff.js",92187],[92191,"js/ficha.js",92692],[92696,"js/relevo.js",93076],[93080,"js/momentos.js",93217],[93221,"js/normas.js",93629],[93633,"js/digest.js",94561],[94565,"js/xlsxw.js",94945],[94949,"js/bugreport.js",96095]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

@@ -5579,6 +5579,38 @@ button.tp-blk:hover { border-color: var(--border-strong); }
 .ui-tabgroup:hover { color: var(--text); }
 .ui-tabgroup.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
 .tp-tab.ui-tg-hidden { display: none !important; }
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [3.37.0] LIBERAR Y APROBAR POR PASOS (js/pasos.js)                       */
+/* Las tarjetas son las de siempre, en su lugar: aquí solo se esconde todo  */
+/* lo demás. Encabezado y pie son los de Operación en tarjetas (.oc-*).     */
+/* ══════════════════════════════════════════════════════════════════════ */
+.ls-toggle { display: none; margin-bottom: var(--space-md); }
+@media (max-width: 640px) { .ls-toggle { display: inline-flex; } }
+body.lib-steps { padding-top: 104px; padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+body.lib-steps .platform-bar, body.lib-steps .ui-bar, body.lib-steps .bottom-nav,
+body.lib-steps .bug-fab, body.lib-steps #bug-fab, body.lib-steps #v7-next-step-banner,
+body.lib-steps .vcl-toggle, body.lib-steps .vcl-panel,
+body.lib-steps #platform-cop15 > .topbar, body.lib-steps #platform-cop15 .tabs,
+body.lib-steps #panel-liberacion > :not(#lib-panel-liberador):not(#lib-panel-aprobador),
+body.lib-steps #lib-panel-liberador > :not(#lib-content),
+body.lib-steps #lib-panel-aprobador > :not(#appr-content),
+body.lib-steps #lib-content > :not(.ls-current),
+body.lib-steps #appr-content > :not(.ls-current),
+body.lib-steps #lib-checklist-card[data-ls-part="objetos"] .relcl-group:nth-child(2),
+body.lib-steps #lib-checklist-card[data-ls-part="objetos"] .relcl-who,
+body.lib-steps #lib-checklist-card[data-ls-part="evidencia"] .relcl-group:nth-child(1) { display: none !important; }
+body.lib-steps .ls-current { max-width: 560px; margin-left: auto !important; margin-right: auto !important; }
+body.lib-steps .ls-current.card, body.lib-steps .ls-current > .card { box-shadow: none; }
+body.lib-steps .relcl-opt { min-height: var(--target-min); }
+.ls-foot { grid-template-columns: auto 1fr; }
+body.ls-at-last .ls-foot { grid-template-columns: auto; }
+body.ls-at-last .ls-foot .oc-save { display: none; }
+.oc-seg.ls-seg-pend .oc-seg-bar { background: var(--warn-bg); outline: 1px solid var(--warn-fill); }
+.oc-seg.ls-seg-pend .oc-seg-fill { background: var(--warn-fill); }
+.ls-pending { margin: 0 0 var(--space-md); padding: var(--space-md); border: 1px solid var(--warn-fill); background: var(--warn-bg); border-radius: var(--radius-lg); }
+.ls-pending-title { font-weight: 700; font-size: var(--fs-sm); margin-bottom: var(--space-xs); }
+.ls-pending-row { display: block; width: 100%; text-align: left; min-height: var(--target-min); }
+
 /* [3.36.0] ☁️ Nube: las pantallas de sincronización en el tema de la app.
    z 9600: encima de uiFlow (9500) y de la ficha (9400), debajo de toasts y diálogos (9999). */
 .fb-overlay { position: fixed; inset: 0; z-index: 9600; overflow-y: auto; background: rgba(15, 23, 42, 0.45); padding: var(--space-lg) var(--space-md); }

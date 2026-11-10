@@ -20,6 +20,48 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.37.0 — Liberar y aprobar en el teléfono, un paso a la vez (2026-11-10)
+
+### Nuevo
+- **Liberación por pasos en el teléfono.** Antes era una sola página de más de cinco pantallas
+  de alto. Ahora se recorre así:
+  1. Resumen de la prueba
+  2. Resultados de emisiones (adjuntar VETS y los gases)
+  3. Objetos a retirar
+  4. Evidencia documental
+  5. Enviar a aprobación
+- **Aprobación por pasos**: Resumen, Verificación, y Aprobar o devolver.
+- Arriba se ve en qué paso vas. Los pasos con algo pendiente salen en ámbar.
+- El último paso dice qué falta antes de enviar o aprobar, y un toque lleva a ese paso.
+- **‹** regresa, **Siguiente ▸** avanza y deslizar hace lo mismo. Avanzar nunca captura ni
+  confirma nada.
+- La **✕** vuelve a la pantalla completa. El botón **📇 Un paso a la vez** regresa al modo por
+  pasos. Es la misma preferencia que Operación en tarjetas: si la apagas en un lado, se apaga en
+  el otro.
+
+### No cambió
+- Las tarjetas, los botones, los candados y la hoja F05 son los de siempre.
+- En computadora la pantalla es la misma.
+- En Aprobación, la decisión de una falla y la comparación con la familia siguen apareciendo
+  solo después de que los valores coinciden.
+
+### Arreglado
+- En Operación en tarjetas, un deslizamiento largo cambiaba de tarjeta y además de plataforma.
+
+### Pendiente
+- Los gases van todos en un paso, no uno por tarjeta: con la prueba de VETS adjunta llegan
+  llenos y se revisan mejor juntos.
+- La revisión dirigida va entera dentro del paso de Verificación, no un bloque por paso.
+
+### Para desarrollo
+- `js/pasos.js` (`libSteps*`). Los pasos son las tarjetas de Liberación y Aprobación en su
+  lugar, marcadas con `data-step` en `index.html`; el resto se esconde con `body.lib-steps`.
+- `libStepsFrom` y `libStepsWanted` son PURAS (`tests/pasos.node.js`). El archivo no escribe en
+  ningún vehículo ni llama a los candados; la prueba lo vigila.
+- Lo pendiente sale de `_libVerifyReleaseValues`, `releaseChecklistRows` y del motivo del botón
+  de aprobar.
+- `tests/v3370.e2e.js` recorre liberar y aprobar en 427×840 y verifica que 1920×1017 no cambia.
+
 ## 3.36.0 — Las pantallas de la nube, en claro (2026-11-10)
 
 ### Cambió
