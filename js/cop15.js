@@ -3251,6 +3251,8 @@ function libSwitchSubtab(tab) {
     document.getElementById('lib-panel-aprobador').style.display = tab === 'aprobador' ? '' : 'none';
     document.getElementById('lib-subtab-liberador').classList.toggle('active', tab === 'liberador');
     document.getElementById('lib-subtab-aprobador').classList.toggle('active', tab === 'aprobador');
+    // [3.38.0] La pastilla se desliza entre Liberador y Aprobador.
+    if (typeof uiPillSync === 'function') uiPillSync(document.getElementById('lib-subtabs'), '.tp-tab.active');
 }
 
 // [v17.10] LA definición de "¿contra qué regulación se compara este vehículo?".

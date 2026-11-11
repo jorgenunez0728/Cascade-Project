@@ -579,6 +579,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             --ease-out: cubic-bezier(0.23, 1, 0.32, 1);        /* strong ease-out for UI entrances/exits */
             --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);    /* strong ease-in-out for on-screen movement */
             --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);     /* iOS-like drawer/sheet curve */
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);  /* [3.38.0] rebote leve al soltar o al llegar */
 
             --dur-fast: 150ms;    /* button press feedback, small popovers */
             --dur-base: 200ms;    /* dropdowns, tooltips, standard entrances */
@@ -4472,7 +4473,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 /* ===== v16.0 · Ayuda / Autoguía: banners por pestaña, botón ℹ️, menú de ayuda ===== */
 .help-banner {
     display: flex; align-items: flex-start; flex-wrap: wrap; gap: var(--space-sm);
-    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-full);
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-lg);   /* [3.38.0] con --radius-full un aviso de varias líneas salía como óvalo */
     padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md); font-size: 12.5px; line-height: 1.5; color: #1e3a5f;
 }
 .help-banner-icon { font-size: 15px; line-height: 1.4; }
@@ -4500,6 +4501,8 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .help-menu-item:hover { background: #eff6ff; border-color: #93c5fd; }
 @media (max-width: 640px) {
     .help-banner { flex-direction: column; }
+    /* [3.38.0] En columna, el `flex-basis: 220px` del texto era su ALTO: dejaba un hueco. */
+    .help-banner-text { flex: 0 0 auto; }
     .help-banner-actions { margin-left: 0; width: 100%; justify-content: flex-end; }
 }
 
@@ -6043,8 +6046,10 @@ body.lib-steps #lib-checklist-card[data-ls-part="evidencia"] .relcl-group:nth-ch
 body.lib-steps .ls-current { max-width: 560px; margin-left: auto !important; margin-right: auto !important; }
 body.lib-steps .ls-current.card, body.lib-steps .ls-current > .card { box-shadow: none; }
 body.lib-steps .relcl-opt { min-height: var(--target-min); }
-.ls-foot { grid-template-columns: auto 1fr; }
-body.ls-at-last .ls-foot { grid-template-columns: auto; }
+/* [3.38.0] `.oc-foot.ls-foot`: la regla de `.oc-foot` va más abajo en el archivo y le ganaba
+   (tres columnas): "Siguiente" no ocupaba el ancho. */
+.oc-foot.ls-foot { grid-template-columns: auto 1fr; }
+body.ls-at-last .oc-foot.ls-foot { grid-template-columns: 1fr; }
 body.ls-at-last .ls-foot .oc-save { display: none; }
 .oc-seg.ls-seg-pend .oc-seg-bar { background: var(--warn-bg); outline: 1px solid var(--warn-fill); }
 .oc-seg.ls-seg-pend .oc-seg-fill { background: var(--warn-fill); }
@@ -7930,6 +7935,108 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .ys-part--pend { background: #fee2e2; color: #991b1b; }
 .ys-part--days { background: #fef3c7; color: #92400e; }
 .ys-leaving { font-size: var(--fs-sm); color: var(--muted); margin-top: var(--space-sm); }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [3.38.0] MOVIMIENTO FLUIDO                                               */
+/* Cuatro piezas, todas sobre `transform` / `opacity` (y el tamaño de la    */
+/* pastilla, que es absoluta y no mueve a nadie):                           */
+/*   1. lo que se toca se comprime y rebota al soltar;                      */
+/*   2. la pastilla de la opción activa se desliza;                         */
+/*   3. la barra inferior y los pies de pasos flotan como cápsulas;         */
+/*   4. las hojas llegan con un rebote leve.                                */
+/* No se agrega ningún `backdrop-filter`: es lo más caro en un teléfono.    */
+/* Va al FINAL del archivo a propósito: su `transition` es el superconjunto */
+/* de las que cada control ya tenía, y tiene que ganarles por posición.     */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* 1. Respuesta al toque ─ comprimir rápido, soltar con resorte. */
+.btn, .btn-primary, .btn-secondary, .btn-reset, .tp-btn, .tp-tab, .ui-chip, .ui-subtab, .ui-tabgroup,
+.veh-card, .relcl-opt, .relcl-all, .dash-row-action, .bottom-nav-item, .miss-link, .uf-choice,
+.oc-save, .oc-back, .oc-later, .uf-save, .uf-back, .uf-later {
+    transition: background-color var(--dur-base), color var(--dur-base), border-color var(--dur-base),
+                box-shadow var(--dur-base), opacity var(--dur-base), transform var(--dur-slow) var(--ease-spring);
+}
+.btn:active:not(:disabled), .btn-primary:active:not(:disabled), .btn-secondary:active:not(:disabled),
+.btn-reset:active:not(:disabled), .tp-btn:active:not(:disabled), .tp-tab:active, .ui-chip:active:not(:disabled),
+.ui-subtab:active, .ui-tabgroup:active, .veh-card:active, .relcl-opt:active, .relcl-all:active,
+.dash-row-action:active, .bottom-nav-item:active, .miss-link:active, .uf-choice:active,
+.oc-save:active, .oc-back:active:not(:disabled), .oc-later:active,
+.uf-save:active:not(:disabled), .uf-back:active:not(:disabled), .uf-later:active {
+    transform: scale(0.96);
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-out);
+}
+
+/* 2. La pastilla. */
+.ui-pill {
+    position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; opacity: 0;
+    border-radius: var(--radius-md);
+    transition: transform var(--dur-slow) var(--ease-drawer), width var(--dur-slow) var(--ease-drawer),
+                height var(--dur-slow) var(--ease-drawer), opacity var(--dur-fast);
+    will-change: transform;
+}
+.ui-pill--jump { transition: none !important; }
+/* La barra inferior ya es `fixed` (eso basta para anclar la pastilla): no se le cambia. */
+.has-pill:not(.bottom-nav) { position: relative; }
+.has-pill > :not(.ui-pill) { position: relative; z-index: 1; }
+/* Grupos de pestañas: la pastilla es la "ficha blanca" que antes pintaba el activo. */
+.ui-tabgroups.has-pill > .ui-pill { background: var(--surface); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
+.ui-tabgroups.has-pill > .ui-tabgroup.active { background: transparent; box-shadow: none; }
+/* Secciones de una pestaña fusionada. */
+.ui-subtabs.has-pill > .ui-pill { background: var(--text); border-radius: var(--radius-full); }
+.ui-subtabs.has-pill > .ui-subtab { background: transparent; }
+.ui-subtabs.has-pill > .ui-subtab.active { background: transparent; border-color: transparent; color: var(--surface); }
+/* Liberador / Aprobador. */
+.lib-subtabs { display: flex; gap: var(--space-2xs); margin-bottom: var(--space-lg); padding: var(--space-2xs);
+               background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.lib-subtabs > .tp-tab { flex: 1; font-size: var(--fs-sm); }
+.lib-subtabs.has-pill > .ui-pill { background: var(--kia-dark); box-shadow: var(--shadow-md); }
+.lib-subtabs.has-pill > .tp-tab.active { background: transparent; box-shadow: none; color: #fff; }
+/* Barra inferior: un tinte suave detrás del activo, en vez de la rayita de arriba. */
+.bottom-nav.has-pill > .ui-pill { background: color-mix(in srgb, var(--kia-red) 12%, transparent); border-radius: var(--radius-full); }
+.bottom-nav.has-pill .bottom-nav-item.active::before { display: none; }
+
+/* 3. Barras flotantes. La barra inferior ocupa lo MISMO que antes (6 + 56 = 62 px): lo que
+      se apoya en su altura (la tira "Siguiente", el 🐞, el aviso de reposo) no se mueve. */
+.bottom-nav {
+    left: var(--space-sm); right: var(--space-sm); bottom: 6px; height: 56px;
+    border: 1px solid var(--glass-border); border-radius: var(--radius-full);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16);
+    padding: var(--space-2xs);
+    /* En pantalla ancha la cápsula no se estira de lado a lado: queda centrada, como un dock. */
+    max-width: 640px; margin-inline: auto;
+}
+.immersive-mode .bottom-nav { height: 56px; padding-bottom: var(--space-2xs); }
+.oc-foot, .uf-foot {
+    left: var(--space-sm); right: var(--space-sm);
+    bottom: calc(var(--space-sm) + env(safe-area-inset-bottom, 0px));
+    padding: var(--space-sm);
+    border: 1px solid var(--border); border-radius: var(--radius-xl);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.18);
+    max-width: 640px; margin-inline: auto;
+}
+.oc-save, .oc-back, .oc-later, .uf-save, .uf-back, .uf-later { border-radius: var(--radius-lg); }
+
+/* 4. Hojas con resorte. */
+.custom-modal-box { animation-timing-function: var(--ease-spring); }
+.ficha-sheet { animation-timing-function: var(--ease-drawer); }
+.ficha-sheet.ficha-settle { transition: transform var(--dur-slow) var(--ease-spring); }
+@media (max-width: 480px) {
+    .fb-sheet { animation: fbSheetIn var(--dur-slow) var(--ease-drawer) both; }
+}
+@keyframes fbSheetIn { from { transform: translateY(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Movimiento reducido: sin compresión, sin rebote, y la pastilla salta. Es la excepción
+   por componente que pide la regla de 22.4 (no se agrega otro bloque `*`). */
+@media (prefers-reduced-motion: reduce) {
+    .btn:active, .btn-primary:active, .btn-secondary:active, .btn-reset:active, .tp-btn:active, .tp-tab:active,
+    .ui-chip:active, .ui-subtab:active, .ui-tabgroup:active, .veh-card:active, .relcl-opt:active, .relcl-all:active,
+    .dash-row-action:active, .bottom-nav-item:active, .miss-link:active, .uf-choice:active,
+    .oc-save:active, .oc-back:active, .oc-later:active, .uf-save:active, .uf-back:active, .uf-later:active { transform: none !important; }
+    .ui-pill { transition: none !important; }
+    .ficha-sheet.ficha-settle { transition: none !important; }
+}
+
     </style>
 </head>
 
@@ -8939,7 +9046,7 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
     <div class="tab-panel" id="panel-liberacion" role="tabpanel">
         <div id="help-banner-slot-cop15-liberacion"></div>
         <!-- Sub-tabs: Liberador / Aprobador -->
-        <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px;">
+        <div id="lib-subtabs" class="lib-subtabs">
             <button id="lib-subtab-liberador" class="tp-tab active" onclick="libSwitchSubtab('liberador')" style="flex:1;border-radius:0;font-size:12px;">
                 📋 Liberador
                 <span id="lib-ready-count" style="margin-left:4px;background:rgba(16,185,129,0.15);color:var(--ok-text);border-radius:4px;padding:1px 5px;font-size: var(--fs-xs);">0</span>
@@ -10678,10 +10785,10 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202611102253';
+var APP_BUILD = '202611111034';
 // [2.10.0] Commit del que salió este build (lo inyecta build.sh): el reporte de fallas
 // enlaza la línea exacta del código que corría, aunque main ya haya cambiado.
-var APP_COMMIT = '2e01d25639abe83a91aa5f11eb101d556922c274';
+var APP_COMMIT = '8c7c464b43441a642597943598af45a5c9b5bd4a';
 
 // Versión que ve el laboratorio: MAYOR.MENOR.PARCHE (desde 2.0.0; ver CLAUDE.md → Versionado).
 //   MAYOR  — la versión nueva no puede convivir en el sync con la vieja, o un rediseño que
@@ -10689,7 +10796,7 @@ var APP_COMMIT = '2e01d25639abe83a91aa5f11eb101d556922c274';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.37.0';
+var APP_VERSION = '3.38.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -10697,6 +10804,13 @@ var APP_VERSION = '3.37.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.38.0', date: '11 nov 2026', title: 'Movimiento fluido',
+      bullets: ['Lo que se toca responde: botones, pestañas, fichas y tarjetas se comprimen al presionar y rebotan al soltar.',
+                'El fondo de la opción activa se desliza de una a otra en los grupos de pestañas, las secciones, la barra de abajo y Liberador / Aprobador.',
+                'La barra de abajo y el pie de los pasos (Operación, Liberación, rondas) ahora flotan como cápsulas redondeadas. En pantalla ancha la barra queda centrada.',
+                'Las ventanas y la ficha llegan con un rebote leve; la ficha regresa con resorte si la sueltas a medio camino.',
+                'Con "reducir movimiento" activado en el equipo, nada de esto se mueve.',
+                'Arreglos: los avisos de ayuda de varias líneas salían como óvalo y con un hueco grande en el teléfono; el botón Siguiente de los pasos no ocupaba el ancho.'] },
     { version: '3.37.0', date: '10 nov 2026', title: 'Liberar y aprobar en el teléfono, un paso a la vez',
       bullets: ['En el teléfono, Liberación se recorre en pasos: Resumen, Resultados de emisiones, Objetos a retirar, Evidencia documental y Enviar. Antes era una sola página de más de cinco pantallas de alto.',
                 'Aprobación igual: Resumen, Verificación y Aprobar o devolver.',
@@ -11998,14 +12112,14 @@ function cascadeVersionPanelRender() {
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202611102253' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202611111034' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202611102253' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202611111034' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -12021,7 +12135,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202611102253' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202611111034' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -15241,6 +15355,7 @@ function switchPlatform(platform, swipeDir) {
     document.querySelectorAll('.bottom-nav-item').forEach(function(b) { b.classList.remove('active'); b.removeAttribute('aria-current'); });
     var bnavEl = document.getElementById('bnav-' + tabGroup);
     if (bnavEl) { bnavEl.classList.add('active'); bnavEl.setAttribute('aria-current', 'page'); }
+    try { uiPillSync(document.getElementById('bottomNav'), '.bottom-nav-item.active'); } catch (e) {}   // [3.38.0]
 
     // Hide floating action bar when leaving COP15
     if (sectionId !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
@@ -18256,6 +18371,70 @@ var UI_TAB_MERGED = {
     ]
 };
 
+// ── [3.38.0] La pastilla que se desliza ─────────────────────────────────
+// En una barra de opciones (grupos, secciones, barra inferior, Liberador/Aprobador) el
+// fondo de la opción activa se MUEVE de una a otra en vez de saltar.
+//   · La pastilla es un elemento aparte (`.ui-pill`, absoluto, aria-hidden): se anima su
+//     `transform` y su tamaño, y no mueve a nadie más.
+//   · El estado activo sigue siendo la clase de siempre (`active`): la pastilla solo lo
+//     DIBUJA. Si no se pudiera colocar, la opción activa se sigue distinguiendo por su color.
+//   · `uiPillBox` es PURA.
+/** Dónde va la pastilla: la caja del elemento activo dentro de su barra, o null. PURA. */
+function uiPillBox(a) {
+    if (!a || !(a.width > 0) || !(a.height > 0)) return null;
+    return { x: Math.round(a.left || 0), y: Math.round(a.top || 0), w: Math.round(a.width), h: Math.round(a.height) };
+}
+function uiPillSync(bar, activeSel) {
+    if (!bar || !bar.querySelector) return;
+    if (activeSel) bar._pillSel = activeSel;
+    var sel = bar._pillSel || '.active';
+    var pill = bar._pill && bar._pill.parentNode === bar ? bar._pill : null;
+    var fresh = !pill;
+    if (fresh) {
+        pill = document.createElement('span');
+        pill.className = 'ui-pill';
+        pill.setAttribute('aria-hidden', 'true');
+        bar.insertBefore(pill, bar.firstChild);
+        bar._pill = pill;
+        bar.classList.add('has-pill');
+        // Una barra oculta mide 0: al mostrarse (o al girar el teléfono) se vuelve a colocar.
+        if (!bar._pillRO && typeof ResizeObserver !== 'undefined') {
+            try { bar._pillRO = new ResizeObserver(function() { uiPillSync(bar); }); bar._pillRO.observe(bar); } catch (e) {}
+        }
+    }
+    var act = null;
+    [].forEach.call(bar.querySelectorAll(sel), function(el) { if (!act && el !== pill && el.offsetWidth > 0) act = el; });
+    var box = act ? uiPillBox({ left: act.offsetLeft, top: act.offsetTop, width: act.offsetWidth, height: act.offsetHeight }) : null;
+    if (!box) { pill.style.opacity = '0'; pill._placed = false; return; }
+    // La primera vez (o al reaparecer) se coloca sin animar: no debe "volar" desde la esquina.
+    var jump = fresh || !pill._placed;
+    if (jump) pill.classList.add('ui-pill--jump');
+    pill.style.width = box.w + 'px';
+    pill.style.height = box.h + 'px';
+    pill.style.transform = 'translate(' + box.x + 'px,' + box.y + 'px)';
+    pill.style.opacity = '1';
+    pill._placed = true;
+    if (jump) { void pill.offsetWidth; pill.classList.remove('ui-pill--jump'); }
+    // Una barra que se desliza de lado deja a la vista la opción activa (se mueve la barra,
+    // nunca la página).
+    if (bar.scrollWidth > bar.clientWidth + 1) {
+        if (box.x < bar.scrollLeft || box.x + box.w > bar.scrollLeft + bar.clientWidth) {
+            bar.scrollLeft = Math.max(0, box.x - (bar.clientWidth - box.w) / 2);
+        }
+    }
+}
+/** Todas las barras con pastilla (al cambiar el tamaño de la ventana o terminar de cargar). */
+function uiPillSyncAll() {
+    if (typeof document === 'undefined') return;
+    [].forEach.call(document.querySelectorAll('.has-pill'), function(b) { try { uiPillSync(b); } catch (e) {} });
+    var nav = document.getElementById('bottomNav');
+    if (nav) uiPillSync(nav, '.bottom-nav-item.active');
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('resize', function() { clearTimeout(window._uiPillT); window._uiPillT = setTimeout(uiPillSyncAll, 120); });
+    window.addEventListener('load', function() { setTimeout(uiPillSyncAll, 0); });
+}
+
 /** El conjunto fusionado al que pertenece una pestaña, o null. PURA. */
 function uiTabMergedSet(mod, tabId, map) {
     var sets = (map || UI_TAB_MERGED)[mod] || [];
@@ -18303,13 +18482,26 @@ function _uiTabMergedSync(mod, tab) {
     });
     var row = document.getElementById('ui-subtabs-' + mod);
     if (!row) return;
-    if (!cur) { row.hidden = true; row.innerHTML = ''; return; }
+    if (!cur) { row.hidden = true; row.innerHTML = ''; row._sig = ''; row._pill = null; return; }
     var vis = cur.tabs.filter(function(t) { return uiTabVisible(t.id); });
     row.hidden = vis.length < 2;
-    row.innerHTML = vis.map(function(t) {
-        return '<button type="button" class="ui-subtab' + (t.id === tab ? ' active' : '') + '" role="tab" aria-selected="' + (t.id === tab ? 'true' : 'false') +
-               '" data-subtab="' + t.id + '">' + escapeHtml(t.label) + '</button>';
-    }).join('');
+    // [3.38.0] Misma anfitriona y mismas secciones: solo cambia cuál está activa. Reescribir
+    // la fila destruiría la pastilla y no habría de dónde deslizarla.
+    var sig = cur.host + '|' + vis.map(function(t) { return t.id; }).join(',');
+    if (row._sig === sig && row.querySelector('.ui-subtab')) {
+        [].forEach.call(row.querySelectorAll('.ui-subtab'), function(b) {
+            var on = b.getAttribute('data-subtab') === tab;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+    } else {
+        row._sig = sig; row._pill = null;
+        row.innerHTML = vis.map(function(t) {
+            return '<button type="button" class="ui-subtab' + (t.id === tab ? ' active' : '') + '" role="tab" aria-selected="' + (t.id === tab ? 'true' : 'false') +
+                   '" data-subtab="' + t.id + '">' + escapeHtml(t.label) + '</button>';
+        }).join('');
+    }
+    if (!row.hidden) uiPillSync(row, '.ui-subtab.active');
     var mem = Object.assign({}, uiPref('tabSections') || {});
     if (mem[cur.host] !== tab) { mem[cur.host] = tab; uiPref('tabSections', mem); }
 }
@@ -18503,7 +18695,7 @@ function uiTabGroupsSync(mod) {
     });
     var row = bar.previousElementSibling;
     if (row && row.classList.contains('ui-tabgroups')) {
-        [].forEach.call(row.children, function(b) {
+        [].forEach.call(row.querySelectorAll('.ui-tabgroup'), function(b) {
             var on = b.getAttribute('data-group') === g.id;
             b.classList.toggle('active', on);
             b.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -18516,6 +18708,7 @@ function uiTabGroupsSync(mod) {
     mem[mod] = Object.assign({}, mem[mod] || {}); mem[mod][g.id] = tab;
     uiPref('tabGroups', mem);
     _uiTabMergedSync(mod, tab);   // [3.34.0]
+    if (row && row.classList.contains('ui-tabgroups') && !row.hidden) uiPillSync(row, '.ui-tabgroup.active');   // [3.38.0]
 }
 
 /** La primera pestaña que este rol ve en un módulo (o en un grupo). */
@@ -24368,6 +24561,8 @@ function libSwitchSubtab(tab) {
     document.getElementById('lib-panel-aprobador').style.display = tab === 'aprobador' ? '' : 'none';
     document.getElementById('lib-subtab-liberador').classList.toggle('active', tab === 'liberador');
     document.getElementById('lib-subtab-aprobador').classList.toggle('active', tab === 'aprobador');
+    // [3.38.0] La pastilla se desliza entre Liberador y Aprobador.
+    if (typeof uiPillSync === 'function') uiPillSync(document.getElementById('lib-subtabs'), '.tp-tab.active');
 }
 
 // [v17.10] LA definición de "¿contra qué regulación se compara este vehículo?".
@@ -74239,7 +74434,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202611102253' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202611111034' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -92645,9 +92840,14 @@ function _fichaGestures(el) {
     sheet.addEventListener('touchend', function(e) {
         e.stopPropagation();
         if (y0 === null) return;
-        sheet.style.transform = '';
         y0 = null;
-        if (dy > 110) fichaClose();
+        if (dy > 110) { sheet.style.transform = ''; fichaClose(); return; }
+        // [3.38.0] No pasó el umbral: regresa a su lugar con resorte, no de golpe.
+        if (dy > 0) {
+            sheet.classList.add('ficha-settle');
+            sheet.style.transform = '';
+            setTimeout(function() { sheet.classList.remove('ficha-settle'); }, 420);
+        }
     }, { passive: true });
 }
 
@@ -94989,7 +95189,7 @@ var _bugSending = false;
 // nada) con {tag: línea del <script>, mods: [[primera línea, archivo, última], …]}.
 // En desarrollo (archivos sueltos) queda en null: el navegador ya da js/x.js:línea.
 // ══════════════════════════════════════════════════════════════════════
-var BUG_LINE_MAP = {"tag":10212,"mods":[[10215,"js/app.js",20775],[20779,"js/uiflow.js",21114],[21118,"js/cop15.js",32644],[32648,"js/inventory.js",40652],[40656,"js/cuarto.js",42786],[42790,"js/sitio.js",44973],[44977,"js/conslist.js",45585],[45589,"js/testplan.js",59192],[59196,"js/bloques.js",59824],[59828,"js/resumen.js",60237],[60241,"js/panel.js",65628],[65632,"js/projects.js",67921],[67925,"js/auth.js",69005],[69009,"js/signatures.js",69371],[69375,"js/firebase-sync.js",78079],[78083,"js/cop_validator.js",83033],[83037,"js/copreport.js",85187],[85191,"js/cophq.js",86001],[86005,"js/homolog.js",87902],[87906,"js/vets.js",89705],[89709,"js/historico.js",90623],[90627,"js/review.js",91096],[91100,"js/opcards.js",91549],[91553,"js/pasos.js",91904],[91908,"js/handoff.js",92187],[92191,"js/ficha.js",92692],[92696,"js/relevo.js",93076],[93080,"js/momentos.js",93217],[93221,"js/normas.js",93629],[93633,"js/digest.js",94561],[94565,"js/xlsxw.js",94945],[94949,"js/bugreport.js",96095]]};
+var BUG_LINE_MAP = {"tag":10319,"mods":[[10322,"js/app.js",20968],[20972,"js/uiflow.js",21307],[21311,"js/cop15.js",32839],[32843,"js/inventory.js",40847],[40851,"js/cuarto.js",42981],[42985,"js/sitio.js",45168],[45172,"js/conslist.js",45780],[45784,"js/testplan.js",59387],[59391,"js/bloques.js",60019],[60023,"js/resumen.js",60432],[60436,"js/panel.js",65823],[65827,"js/projects.js",68116],[68120,"js/auth.js",69200],[69204,"js/signatures.js",69566],[69570,"js/firebase-sync.js",78274],[78278,"js/cop_validator.js",83228],[83232,"js/copreport.js",85382],[85386,"js/cophq.js",86196],[86200,"js/homolog.js",88097],[88101,"js/vets.js",89900],[89904,"js/historico.js",90818],[90822,"js/review.js",91291],[91295,"js/opcards.js",91744],[91748,"js/pasos.js",92099],[92103,"js/handoff.js",92382],[92386,"js/ficha.js",92892],[92896,"js/relevo.js",93276],[93280,"js/momentos.js",93417],[93421,"js/normas.js",93829],[93833,"js/digest.js",94761],[94765,"js/xlsxw.js",95145],[95149,"js/bugreport.js",96295]]};
 var BUG_EXCERPT_RADIUS = 6;
 
 /** Línea del documento → {file, line} del archivo fuente, o null. PURA. */

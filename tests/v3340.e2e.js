@@ -31,7 +31,7 @@ const barra = (page, barId) => page.evaluate((id) => {
     return {
         tabs: [...bar.querySelectorAll('.tp-tab')].filter(vis).map(b => b.textContent.trim()),
         activa: ([...bar.querySelectorAll('.tp-tab.active')].filter(vis)[0] || {}).textContent || '',
-        secciones: [...(bar.nextElementSibling.classList.contains('ui-subtabs') && !bar.nextElementSibling.hidden ? bar.nextElementSibling.children : [])].map(b => b.textContent.trim()),
+        secciones: [...(bar.nextElementSibling.classList.contains('ui-subtabs') && !bar.nextElementSibling.hidden ? bar.nextElementSibling.querySelectorAll('.ui-subtab') : [])].map(b => b.textContent.trim()),
         seccion: ((bar.nextElementSibling.querySelector('.ui-subtab.active')) || {}).textContent || '',
         grupos: getComputedStyle(bar.previousElementSibling).display !== 'none'
     };

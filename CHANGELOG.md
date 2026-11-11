@@ -20,6 +20,42 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.38.0 — Movimiento fluido (2026-11-11)
+
+### Nuevo
+- **Lo que se toca responde.** Botones, pestañas, fichas, tarjetas de vehículo, opciones del
+  checklist y la barra de abajo se comprimen al presionar y rebotan al soltar.
+- **La opción activa se desliza.** El fondo que marca la opción elegida se mueve de una a otra en
+  vez de saltar:
+  - grupos de pestañas de Plan y Datos;
+  - secciones de una pestaña (Resumen, Existencias, Reportes, Regulaciones, Sistema);
+  - la barra de abajo;
+  - Liberador / Aprobador.
+- **Barras flotantes.** La barra de abajo y el pie de los pasos (Operación, Liberación,
+  Aprobación y las rondas) son cápsulas redondeadas separadas del borde. En pantalla ancha la
+  barra de abajo queda centrada en vez de ir de lado a lado.
+- **Hojas con resorte.** Las ventanas llegan con un rebote leve. La ficha regresa a su lugar con
+  resorte si la sueltas antes de cerrarla, y ☁️ Nube sube desde abajo en el teléfono.
+- Con "reducir movimiento" activado en el equipo, nada se comprime, rebota ni se desliza.
+
+### Arreglado
+- Los avisos de ayuda de varias líneas salían con forma de óvalo, y en el teléfono dejaban un
+  hueco grande entre el texto y los botones.
+- En Liberación y Aprobación por pasos, el botón Siguiente no ocupaba el ancho disponible.
+
+### No se hizo, a propósito
+- Desenfoque en más superficies, luz que sigue al dedo y transiciones de pantalla completa: son
+  caros en un teléfono modesto o ya fallaron antes. No se agregó ningún desenfoque nuevo.
+- ☁️ Nube no se cierra arrastrando: en el teléfono ocupa toda la pantalla y tiene su ✕.
+
+### Para desarrollo
+- `uiPillSync(barra, selectorActivo)` (app.js) coloca la pastilla `.ui-pill`; `uiPillBox` es PURA.
+  El estado activo sigue siendo la clase `active`.
+- Token `--ease-spring`. El bloque `[3.38.0] MOVIMIENTO FLUIDO` va al final de `styles.css`.
+- La barra de abajo ocupa lo mismo que antes (6 + 56 = 62 px), así que la tira "Siguiente", el 🐞
+  y el aviso de reposo no se movieron. No hizo falta la variable `--bottom-nav-h` del plan.
+- `tests/v3380.e2e.js` (427×840, movimiento reducido y 1920×1017).
+
 ## 3.37.0 — Liberar y aprobar en el teléfono, un paso a la vez (2026-11-10)
 
 ### Nuevo
