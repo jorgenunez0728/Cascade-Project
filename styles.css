@@ -138,6 +138,7 @@
             --ease-out: cubic-bezier(0.23, 1, 0.32, 1);        /* strong ease-out for UI entrances/exits */
             --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);    /* strong ease-in-out for on-screen movement */
             --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);     /* iOS-like drawer/sheet curve */
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);  /* [3.38.0] rebote leve al soltar o al llegar */
 
             --dur-fast: 150ms;    /* button press feedback, small popovers */
             --dur-base: 200ms;    /* dropdowns, tooltips, standard entrances */
@@ -4031,7 +4032,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 /* ===== v16.0 · Ayuda / Autoguía: banners por pestaña, botón ℹ️, menú de ayuda ===== */
 .help-banner {
     display: flex; align-items: flex-start; flex-wrap: wrap; gap: var(--space-sm);
-    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-full);
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-lg);   /* [3.38.0] con --radius-full un aviso de varias líneas salía como óvalo */
     padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md); font-size: 12.5px; line-height: 1.5; color: #1e3a5f;
 }
 .help-banner-icon { font-size: 15px; line-height: 1.4; }
@@ -4059,6 +4060,8 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .help-menu-item:hover { background: #eff6ff; border-color: #93c5fd; }
 @media (max-width: 640px) {
     .help-banner { flex-direction: column; }
+    /* [3.38.0] En columna, el `flex-basis: 220px` del texto era su ALTO: dejaba un hueco. */
+    .help-banner-text { flex: 0 0 auto; }
     .help-banner-actions { margin-left: 0; width: 100%; justify-content: flex-end; }
 }
 
@@ -5602,8 +5605,10 @@ body.lib-steps #lib-checklist-card[data-ls-part="evidencia"] .relcl-group:nth-ch
 body.lib-steps .ls-current { max-width: 560px; margin-left: auto !important; margin-right: auto !important; }
 body.lib-steps .ls-current.card, body.lib-steps .ls-current > .card { box-shadow: none; }
 body.lib-steps .relcl-opt { min-height: var(--target-min); }
-.ls-foot { grid-template-columns: auto 1fr; }
-body.ls-at-last .ls-foot { grid-template-columns: auto; }
+/* [3.38.0] `.oc-foot.ls-foot`: la regla de `.oc-foot` va más abajo en el archivo y le ganaba
+   (tres columnas): "Siguiente" no ocupaba el ancho. */
+.oc-foot.ls-foot { grid-template-columns: auto 1fr; }
+body.ls-at-last .oc-foot.ls-foot { grid-template-columns: 1fr; }
 body.ls-at-last .ls-foot .oc-save { display: none; }
 .oc-seg.ls-seg-pend .oc-seg-bar { background: var(--warn-bg); outline: 1px solid var(--warn-fill); }
 .oc-seg.ls-seg-pend .oc-seg-fill { background: var(--warn-fill); }
@@ -7489,3 +7494,105 @@ td > .cas-remote-tag, td > .cas-remote-clash { display: block; margin-left: 0; t
 .ys-part--pend { background: #fee2e2; color: #991b1b; }
 .ys-part--days { background: #fef3c7; color: #92400e; }
 .ys-leaving { font-size: var(--fs-sm); color: var(--muted); margin-top: var(--space-sm); }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [3.38.0] MOVIMIENTO FLUIDO                                               */
+/* Cuatro piezas, todas sobre `transform` / `opacity` (y el tamaño de la    */
+/* pastilla, que es absoluta y no mueve a nadie):                           */
+/*   1. lo que se toca se comprime y rebota al soltar;                      */
+/*   2. la pastilla de la opción activa se desliza;                         */
+/*   3. la barra inferior y los pies de pasos flotan como cápsulas;         */
+/*   4. las hojas llegan con un rebote leve.                                */
+/* No se agrega ningún `backdrop-filter`: es lo más caro en un teléfono.    */
+/* Va al FINAL del archivo a propósito: su `transition` es el superconjunto */
+/* de las que cada control ya tenía, y tiene que ganarles por posición.     */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* 1. Respuesta al toque ─ comprimir rápido, soltar con resorte. */
+.btn, .btn-primary, .btn-secondary, .btn-reset, .tp-btn, .tp-tab, .ui-chip, .ui-subtab, .ui-tabgroup,
+.veh-card, .relcl-opt, .relcl-all, .dash-row-action, .bottom-nav-item, .miss-link, .uf-choice,
+.oc-save, .oc-back, .oc-later, .uf-save, .uf-back, .uf-later {
+    transition: background-color var(--dur-base), color var(--dur-base), border-color var(--dur-base),
+                box-shadow var(--dur-base), opacity var(--dur-base), transform var(--dur-slow) var(--ease-spring);
+}
+.btn:active:not(:disabled), .btn-primary:active:not(:disabled), .btn-secondary:active:not(:disabled),
+.btn-reset:active:not(:disabled), .tp-btn:active:not(:disabled), .tp-tab:active, .ui-chip:active:not(:disabled),
+.ui-subtab:active, .ui-tabgroup:active, .veh-card:active, .relcl-opt:active, .relcl-all:active,
+.dash-row-action:active, .bottom-nav-item:active, .miss-link:active, .uf-choice:active,
+.oc-save:active, .oc-back:active:not(:disabled), .oc-later:active,
+.uf-save:active:not(:disabled), .uf-back:active:not(:disabled), .uf-later:active {
+    transform: scale(0.96);
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-out);
+}
+
+/* 2. La pastilla. */
+.ui-pill {
+    position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; opacity: 0;
+    border-radius: var(--radius-md);
+    transition: transform var(--dur-slow) var(--ease-drawer), width var(--dur-slow) var(--ease-drawer),
+                height var(--dur-slow) var(--ease-drawer), opacity var(--dur-fast);
+    will-change: transform;
+}
+.ui-pill--jump { transition: none !important; }
+/* La barra inferior ya es `fixed` (eso basta para anclar la pastilla): no se le cambia. */
+.has-pill:not(.bottom-nav) { position: relative; }
+.has-pill > :not(.ui-pill) { position: relative; z-index: 1; }
+/* Grupos de pestañas: la pastilla es la "ficha blanca" que antes pintaba el activo. */
+.ui-tabgroups.has-pill > .ui-pill { background: var(--surface); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08)); }
+.ui-tabgroups.has-pill > .ui-tabgroup.active { background: transparent; box-shadow: none; }
+/* Secciones de una pestaña fusionada. */
+.ui-subtabs.has-pill > .ui-pill { background: var(--text); border-radius: var(--radius-full); }
+.ui-subtabs.has-pill > .ui-subtab { background: transparent; }
+.ui-subtabs.has-pill > .ui-subtab.active { background: transparent; border-color: transparent; color: var(--surface); }
+/* Liberador / Aprobador. */
+.lib-subtabs { display: flex; gap: var(--space-2xs); margin-bottom: var(--space-lg); padding: var(--space-2xs);
+               background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.lib-subtabs > .tp-tab { flex: 1; font-size: var(--fs-sm); }
+.lib-subtabs.has-pill > .ui-pill { background: var(--kia-dark); box-shadow: var(--shadow-md); }
+.lib-subtabs.has-pill > .tp-tab.active { background: transparent; box-shadow: none; color: #fff; }
+/* Barra inferior: un tinte suave detrás del activo, en vez de la rayita de arriba. */
+.bottom-nav.has-pill > .ui-pill { background: color-mix(in srgb, var(--kia-red) 12%, transparent); border-radius: var(--radius-full); }
+.bottom-nav.has-pill .bottom-nav-item.active::before { display: none; }
+
+/* 3. Barras flotantes. La barra inferior ocupa lo MISMO que antes (6 + 56 = 62 px): lo que
+      se apoya en su altura (la tira "Siguiente", el 🐞, el aviso de reposo) no se mueve. */
+.bottom-nav {
+    left: var(--space-sm); right: var(--space-sm); bottom: 6px; height: 56px;
+    border: 1px solid var(--glass-border); border-radius: var(--radius-full);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16);
+    padding: var(--space-2xs);
+    /* En pantalla ancha la cápsula no se estira de lado a lado: queda centrada, como un dock. */
+    max-width: 640px; margin-inline: auto;
+}
+.immersive-mode .bottom-nav { height: 56px; padding-bottom: var(--space-2xs); }
+.oc-foot, .uf-foot {
+    left: var(--space-sm); right: var(--space-sm);
+    bottom: calc(var(--space-sm) + env(safe-area-inset-bottom, 0px));
+    padding: var(--space-sm);
+    border: 1px solid var(--border); border-radius: var(--radius-xl);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.18);
+    max-width: 640px; margin-inline: auto;
+}
+.oc-save, .oc-back, .oc-later, .uf-save, .uf-back, .uf-later { border-radius: var(--radius-lg); }
+
+/* 4. Hojas con resorte. */
+.custom-modal-box { animation-timing-function: var(--ease-spring); }
+.ficha-sheet { animation-timing-function: var(--ease-drawer); }
+.ficha-sheet.ficha-settle { transition: transform var(--dur-slow) var(--ease-spring); }
+@media (max-width: 480px) {
+    .fb-sheet { animation: fbSheetIn var(--dur-slow) var(--ease-drawer) both; }
+}
+@keyframes fbSheetIn { from { transform: translateY(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Movimiento reducido: sin compresión, sin rebote, y la pastilla salta. Es la excepción
+   por componente que pide la regla de 22.4 (no se agrega otro bloque `*`). */
+@media (prefers-reduced-motion: reduce) {
+    .btn:active, .btn-primary:active, .btn-secondary:active, .btn-reset:active, .tp-btn:active, .tp-tab:active,
+    .ui-chip:active, .ui-subtab:active, .ui-tabgroup:active, .veh-card:active, .relcl-opt:active, .relcl-all:active,
+    .dash-row-action:active, .bottom-nav-item:active, .miss-link:active, .uf-choice:active,
+    .oc-save:active, .oc-back:active, .oc-later:active, .uf-save:active, .uf-back:active, .uf-later:active { transform: none !important; }
+    .ui-pill { transition: none !important; }
+    .ficha-sheet.ficha-settle { transition: none !important; }
+}
+

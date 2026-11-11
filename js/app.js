@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.37.0';
+var APP_VERSION = '3.38.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,13 @@ var APP_VERSION = '3.37.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.38.0', date: '11 nov 2026', title: 'Movimiento fluido',
+      bullets: ['Lo que se toca responde: botones, pestañas, fichas y tarjetas se comprimen al presionar y rebotan al soltar.',
+                'El fondo de la opción activa se desliza de una a otra en los grupos de pestañas, las secciones, la barra de abajo y Liberador / Aprobador.',
+                'La barra de abajo y el pie de los pasos (Operación, Liberación, rondas) ahora flotan como cápsulas redondeadas. En pantalla ancha la barra queda centrada.',
+                'Las ventanas y la ficha llegan con un rebote leve; la ficha regresa con resorte si la sueltas a medio camino.',
+                'Con "reducir movimiento" activado en el equipo, nada de esto se mueve.',
+                'Arreglos: los avisos de ayuda de varias líneas salían como óvalo y con un hueco grande en el teléfono; el botón Siguiente de los pasos no ocupaba el ancho.'] },
     { version: '3.37.0', date: '10 nov 2026', title: 'Liberar y aprobar en el teléfono, un paso a la vez',
       bullets: ['En el teléfono, Liberación se recorre en pasos: Resumen, Resultados de emisiones, Objetos a retirar, Evidencia documental y Enviar. Antes era una sola página de más de cinco pantallas de alto.',
                 'Aprobación igual: Resumen, Verificación y Aprobar o devolver.',
@@ -5027,6 +5034,7 @@ function switchPlatform(platform, swipeDir) {
     document.querySelectorAll('.bottom-nav-item').forEach(function(b) { b.classList.remove('active'); b.removeAttribute('aria-current'); });
     var bnavEl = document.getElementById('bnav-' + tabGroup);
     if (bnavEl) { bnavEl.classList.add('active'); bnavEl.setAttribute('aria-current', 'page'); }
+    try { uiPillSync(document.getElementById('bottomNav'), '.bottom-nav-item.active'); } catch (e) {}   // [3.38.0]
 
     // Hide floating action bar when leaving COP15
     if (sectionId !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
@@ -8042,6 +8050,70 @@ var UI_TAB_MERGED = {
     ]
 };
 
+// ── [3.38.0] La pastilla que se desliza ─────────────────────────────────
+// En una barra de opciones (grupos, secciones, barra inferior, Liberador/Aprobador) el
+// fondo de la opción activa se MUEVE de una a otra en vez de saltar.
+//   · La pastilla es un elemento aparte (`.ui-pill`, absoluto, aria-hidden): se anima su
+//     `transform` y su tamaño, y no mueve a nadie más.
+//   · El estado activo sigue siendo la clase de siempre (`active`): la pastilla solo lo
+//     DIBUJA. Si no se pudiera colocar, la opción activa se sigue distinguiendo por su color.
+//   · `uiPillBox` es PURA.
+/** Dónde va la pastilla: la caja del elemento activo dentro de su barra, o null. PURA. */
+function uiPillBox(a) {
+    if (!a || !(a.width > 0) || !(a.height > 0)) return null;
+    return { x: Math.round(a.left || 0), y: Math.round(a.top || 0), w: Math.round(a.width), h: Math.round(a.height) };
+}
+function uiPillSync(bar, activeSel) {
+    if (!bar || !bar.querySelector) return;
+    if (activeSel) bar._pillSel = activeSel;
+    var sel = bar._pillSel || '.active';
+    var pill = bar._pill && bar._pill.parentNode === bar ? bar._pill : null;
+    var fresh = !pill;
+    if (fresh) {
+        pill = document.createElement('span');
+        pill.className = 'ui-pill';
+        pill.setAttribute('aria-hidden', 'true');
+        bar.insertBefore(pill, bar.firstChild);
+        bar._pill = pill;
+        bar.classList.add('has-pill');
+        // Una barra oculta mide 0: al mostrarse (o al girar el teléfono) se vuelve a colocar.
+        if (!bar._pillRO && typeof ResizeObserver !== 'undefined') {
+            try { bar._pillRO = new ResizeObserver(function() { uiPillSync(bar); }); bar._pillRO.observe(bar); } catch (e) {}
+        }
+    }
+    var act = null;
+    [].forEach.call(bar.querySelectorAll(sel), function(el) { if (!act && el !== pill && el.offsetWidth > 0) act = el; });
+    var box = act ? uiPillBox({ left: act.offsetLeft, top: act.offsetTop, width: act.offsetWidth, height: act.offsetHeight }) : null;
+    if (!box) { pill.style.opacity = '0'; pill._placed = false; return; }
+    // La primera vez (o al reaparecer) se coloca sin animar: no debe "volar" desde la esquina.
+    var jump = fresh || !pill._placed;
+    if (jump) pill.classList.add('ui-pill--jump');
+    pill.style.width = box.w + 'px';
+    pill.style.height = box.h + 'px';
+    pill.style.transform = 'translate(' + box.x + 'px,' + box.y + 'px)';
+    pill.style.opacity = '1';
+    pill._placed = true;
+    if (jump) { void pill.offsetWidth; pill.classList.remove('ui-pill--jump'); }
+    // Una barra que se desliza de lado deja a la vista la opción activa (se mueve la barra,
+    // nunca la página).
+    if (bar.scrollWidth > bar.clientWidth + 1) {
+        if (box.x < bar.scrollLeft || box.x + box.w > bar.scrollLeft + bar.clientWidth) {
+            bar.scrollLeft = Math.max(0, box.x - (bar.clientWidth - box.w) / 2);
+        }
+    }
+}
+/** Todas las barras con pastilla (al cambiar el tamaño de la ventana o terminar de cargar). */
+function uiPillSyncAll() {
+    if (typeof document === 'undefined') return;
+    [].forEach.call(document.querySelectorAll('.has-pill'), function(b) { try { uiPillSync(b); } catch (e) {} });
+    var nav = document.getElementById('bottomNav');
+    if (nav) uiPillSync(nav, '.bottom-nav-item.active');
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('resize', function() { clearTimeout(window._uiPillT); window._uiPillT = setTimeout(uiPillSyncAll, 120); });
+    window.addEventListener('load', function() { setTimeout(uiPillSyncAll, 0); });
+}
+
 /** El conjunto fusionado al que pertenece una pestaña, o null. PURA. */
 function uiTabMergedSet(mod, tabId, map) {
     var sets = (map || UI_TAB_MERGED)[mod] || [];
@@ -8089,13 +8161,26 @@ function _uiTabMergedSync(mod, tab) {
     });
     var row = document.getElementById('ui-subtabs-' + mod);
     if (!row) return;
-    if (!cur) { row.hidden = true; row.innerHTML = ''; return; }
+    if (!cur) { row.hidden = true; row.innerHTML = ''; row._sig = ''; row._pill = null; return; }
     var vis = cur.tabs.filter(function(t) { return uiTabVisible(t.id); });
     row.hidden = vis.length < 2;
-    row.innerHTML = vis.map(function(t) {
-        return '<button type="button" class="ui-subtab' + (t.id === tab ? ' active' : '') + '" role="tab" aria-selected="' + (t.id === tab ? 'true' : 'false') +
-               '" data-subtab="' + t.id + '">' + escapeHtml(t.label) + '</button>';
-    }).join('');
+    // [3.38.0] Misma anfitriona y mismas secciones: solo cambia cuál está activa. Reescribir
+    // la fila destruiría la pastilla y no habría de dónde deslizarla.
+    var sig = cur.host + '|' + vis.map(function(t) { return t.id; }).join(',');
+    if (row._sig === sig && row.querySelector('.ui-subtab')) {
+        [].forEach.call(row.querySelectorAll('.ui-subtab'), function(b) {
+            var on = b.getAttribute('data-subtab') === tab;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+    } else {
+        row._sig = sig; row._pill = null;
+        row.innerHTML = vis.map(function(t) {
+            return '<button type="button" class="ui-subtab' + (t.id === tab ? ' active' : '') + '" role="tab" aria-selected="' + (t.id === tab ? 'true' : 'false') +
+                   '" data-subtab="' + t.id + '">' + escapeHtml(t.label) + '</button>';
+        }).join('');
+    }
+    if (!row.hidden) uiPillSync(row, '.ui-subtab.active');
     var mem = Object.assign({}, uiPref('tabSections') || {});
     if (mem[cur.host] !== tab) { mem[cur.host] = tab; uiPref('tabSections', mem); }
 }
@@ -8289,7 +8374,7 @@ function uiTabGroupsSync(mod) {
     });
     var row = bar.previousElementSibling;
     if (row && row.classList.contains('ui-tabgroups')) {
-        [].forEach.call(row.children, function(b) {
+        [].forEach.call(row.querySelectorAll('.ui-tabgroup'), function(b) {
             var on = b.getAttribute('data-group') === g.id;
             b.classList.toggle('active', on);
             b.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -8302,6 +8387,7 @@ function uiTabGroupsSync(mod) {
     mem[mod] = Object.assign({}, mem[mod] || {}); mem[mod][g.id] = tab;
     uiPref('tabGroups', mem);
     _uiTabMergedSync(mod, tab);   // [3.34.0]
+    if (row && row.classList.contains('ui-tabgroups') && !row.hidden) uiPillSync(row, '.ui-tabgroup.active');   // [3.38.0]
 }
 
 /** La primera pestaña que este rol ve en un módulo (o en un grupo). */

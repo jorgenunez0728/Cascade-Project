@@ -4452,3 +4452,28 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
   `body.lib-steps`.
 - Orden de carga: `… review.js → opcards.js → pasos.js → handoff.js …`.
 
+## 3.38.0 — Movimiento fluido (`styles.css`, `js/app.js`)
+
+- **`uiPillSync(barra, selectorActivo)` es LA pastilla que se desliza** (`.ui-pill`, absoluta,
+  `aria-hidden`); `uiPillBox` es PURA. Una barra de opciones nueva la llama después de marcar su
+  activo. **La pastilla solo DIBUJA**: el estado sigue siendo la clase `active`, y los estilos
+  `.<barra>.has-pill` le quitan el fondo al activo para que no se pinte dos veces.
+- **Una barra con pastilla no se reescribe con `innerHTML` si sus opciones son las mismas**
+  (`_uiTabMergedSync` compara `row._sig`): reescribirla destruye la pastilla y no hay de dónde
+  deslizarla. Si se reescribe, poner `barra._pill = null`.
+- `.has-pill` pone `position: relative` **salvo en `.bottom-nav`**, que es `fixed`: cambiarlo la
+  sacaba de la pantalla. Una barra `fixed` o `sticky` nueva con pastilla necesita la misma excepción.
+- **La respuesta al toque es UNA regla** al final de `styles.css` (lista de selectores con
+  `transform … var(--ease-spring)` y su `:active { scale(0.96) }`). Un control nuevo que se toque
+  se agrega a las dos listas y a la de movimiento reducido; no escribirle su propio `:active`.
+  Su `transition` es un superconjunto y gana por posición: por eso el bloque va al final.
+- **La barra de abajo ocupa 62 px desde el borde** (6 de separación + 56 de alto). La tira
+  "Siguiente", el 🐞 y el aviso de reposo se apoyan en ese número: si cambia, cambian con él.
+- **No agregar `backdrop-filter` nuevos.** Esta ronda no agregó ninguno; la barra de abajo ya
+  lo tenía.
+- Movimiento reducido: la excepción va por componente, al final del bloque (regla de 22.4).
+- **En una fila flex en columna, `flex-basis` es el ALTO.** El aviso de ayuda traía
+  `flex: 1 1 220px` y en teléfono (columna) dejaba 220 px de hueco.
+- **Dos reglas de igual peso: gana la de más abajo en el archivo.** `.ls-foot` perdía contra
+  `.oc-foot`; se escribe `.oc-foot.ls-foot`.
+

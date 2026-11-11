@@ -455,9 +455,14 @@ function _fichaGestures(el) {
     sheet.addEventListener('touchend', function(e) {
         e.stopPropagation();
         if (y0 === null) return;
-        sheet.style.transform = '';
         y0 = null;
-        if (dy > 110) fichaClose();
+        if (dy > 110) { sheet.style.transform = ''; fichaClose(); return; }
+        // [3.38.0] No pasó el umbral: regresa a su lugar con resorte, no de golpe.
+        if (dy > 0) {
+            sheet.classList.add('ficha-settle');
+            sheet.style.transform = '';
+            setTimeout(function() { sheet.classList.remove('ficha-settle'); }, 420);
+        }
     }, { passive: true });
 }
 
