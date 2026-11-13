@@ -475,7 +475,7 @@ var APP_COMMIT = '__APP_COMMIT__';
 //            flujo, indicador, regla de cálculo). PARCHE — solo arreglos.
 // Debe coincidir con la primera entrada de APP_VERSION_HISTORY, con el primer "## " de
 // CHANGELOG.md y con package.json — tests/version.node.js lo verifica.
-var APP_VERSION = '3.38.0';
+var APP_VERSION = '3.38.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
@@ -483,6 +483,10 @@ var APP_VERSION = '3.38.0';
 // index.html lee exactamente esos campos (12 entradas escritas como {v, notes} salían vacías).
 // `legacy: true` = numeración anterior (v15.5–v24.4 y rondas); se pinta bajo su separador.
 var APP_VERSION_HISTORY = [
+    { version: '3.38.1', date: '13 nov 2026', title: 'Recuadros del Alta y captura del 🐞',
+      bullets: ['El Alta vuelve a verse bien en el teléfono: el nivel abierto de la cascada (Motor, Transmisión…) salía recortado en óvalo y tapaba las opciones.',
+                'Lo mismo en otros recuadros que se habían quedado redondos de más: ETW, Target, firma, falla declarada, calendario, tarjetas de HOY y el panel del mapa.',
+                'El 🐞 vuelve a mandar la captura de pantalla. Desde la 3.38.0 salía solo con texto en el teléfono.'] },
     { version: '3.38.0', date: '11 nov 2026', title: 'Movimiento fluido',
       bullets: ['Lo que se toca responde: botones, pestañas, fichas y tarjetas se comprimen al presionar y rebotan al soltar.',
                 'El fondo de la opción activa se desliza de una a otra en los grupos de pestañas, las secciones, la barra de abajo y Liberador / Aprobador.',

@@ -20,6 +20,27 @@ Desde **2.0.0** la versión tiene tres números: **MAYOR.MENOR.PARCHE** (por eje
   esas etiquetas y reescribirlas rompería la trazabilidad. No se confunden con las nuevas: las
   viejas tienen dos números (y empiezan en 15), las nuevas tres.
 
+## 3.38.1 — Recuadros del Alta y captura del 🐞 (2026-11-13)
+
+### Arreglado
+- **El Alta en el teléfono.** El nivel abierto de la cascada (Motor, Transmisión…) salía
+  recortado en óvalo: el encabezado se cortaba ("ʌOTOR") y las opciones de la orilla quedaban
+  mochas. Venía de la 3.26.0, que por error dejó 35 recuadros con esquinas de píldora.
+- **Otros recuadros con el mismo defecto**: ETW, fila de Target/Dyno, área de firma, falla
+  declarada, celdas del calendario, tarjetas y "Lo siguiente" de HOY, aviso de cierre, cámara y
+  documentos de importación, controles y panel del mapa, y los botones de actividad del día de
+  Mi semana. Vuelven a esquinas de 8 px. Los chips, insignias y buscadores siguen redondos.
+- **El 🐞 manda la captura otra vez.** Desde la 3.38.0 el reporte salía solo con texto en el
+  teléfono: el capturador no entiende un color de la barra de abajo y fallaba completo.
+
+### Para desarrollo
+- `--radius-full` es solo para lo que mide UNA línea (chip, insignia, campo, botón corto).
+  Un contenedor que crece con su contenido —sobre todo con `overflow: hidden`— usa `--radius-xl`
+  o `--radius-2xl`: con 9999 px se recorta en óvalo en cuanto tiene dos renglones.
+- `bugCloneSafeColors(doc)` corre en el `onclone` de html2canvas y traduce a rgba los colores
+  que 1.4.1 no lee (`color(…)`, `color-mix(…)`, `oklch`…); sombras y fondos de imagen con esas
+  funciones se apagan en la copia. `bugColorUnsupported(v)` es PURA (`tests/bugreport.node.js`).
+
 ## 3.38.0 — Movimiento fluido (2026-11-11)
 
 ### Nuevo
