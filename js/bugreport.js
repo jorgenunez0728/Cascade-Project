@@ -186,6 +186,62 @@ function _bugLoadHtml2Canvas(cb) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
+// COLORES QUE html2canvas NO ENTIENDE
+// ══════════════════════════════════════════════════════════════════════
+// [3.38.1] html2canvas 1.4.1 lanza "unsupported color function" ante `color(…)`,
+// `color-mix(…)`, `oklch(…)`… y la captura ENTERA falla: el reporte salía sin
+// imagen. El navegador entrega `color-mix` ya resuelto como `color(srgb …)`, así que
+// un solo elemento visible con `color-mix` (la pastilla de la barra de abajo, el mapa
+// del laboratorio) basta. En la COPIA que html2canvas dibuja (onclone) esos valores se
+// traducen a rgba. La página real no se toca.
+
+var BUG_COLOR_FN_RE = /\b(color|color-mix|oklch|oklab|lab|lch|hwb)\(/i;
+var BUG_COLOR_PROPS = ['color', 'background-color', 'border-top-color', 'border-right-color',
+    'border-bottom-color', 'border-left-color', 'outline-color', 'text-decoration-color',
+    'column-rule-color', 'caret-color', 'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color'];
+// Estas no se traducen (llevan varios colores dentro): se apagan en la copia.
+var BUG_COLOR_DROP = { 'box-shadow': 'none', 'text-shadow': 'none', 'background-image': 'none' };
+
+/** PURA: ¿este valor computado de CSS trae una función de color que html2canvas no lee? */
+function bugColorUnsupported(v) {
+    return typeof v === 'string' && BUG_COLOR_FN_RE.test(v);
+}
+
+/** Traduce un color cualquiera a rgba dibujándolo en un lienzo de 1 px. */
+function _bugColorToRgba(v, ctx) {
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, 1, 1);
+    var d = ctx.getImageData(0, 0, 1, 1).data;
+    return 'rgba(' + d[0] + ',' + d[1] + ',' + d[2] + ',' + (Math.round(d[3] / 255 * 1000) / 1000) + ')';
+}
+
+/** onclone de html2canvas: deja en la copia solo colores que sabe leer. Devuelve cuántos cambió. */
+function bugCloneSafeColors(doc) {
+    var n = 0;
+    try {
+        var win = doc.defaultView || window;
+        var cv = doc.createElement('canvas'); cv.width = cv.height = 1;
+        var ctx = cv.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return 0;
+        var els = doc.querySelectorAll('*');
+        for (var i = 0; i < els.length; i++) {
+            var el = els[i], cs = win.getComputedStyle(el);
+            if (!cs) continue;
+            for (var p = 0; p < BUG_COLOR_PROPS.length; p++) {
+                var v = cs.getPropertyValue(BUG_COLOR_PROPS[p]);
+                if (bugColorUnsupported(v)) { el.style.setProperty(BUG_COLOR_PROPS[p], _bugColorToRgba(v, ctx), 'important'); n++; }
+            }
+            for (var k in BUG_COLOR_DROP) {
+                if (bugColorUnsupported(cs.getPropertyValue(k))) { el.style.setProperty(k, BUG_COLOR_DROP[k], 'important'); n++; }
+            }
+        }
+    } catch (e) { /* la captura sigue; en el peor caso html2canvas falla como antes */ }
+    return n;
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // BOTÓN FLOTANTE
 // ══════════════════════════════════════════════════════════════════════
 
@@ -264,6 +320,7 @@ function bugCaptureStart() {
                 windowHeight: document.documentElement.clientHeight,
                 width: window.innerWidth,
                 height: window.innerHeight,
+                onclone: function(doc) { bugCloneSafeColors(doc); },
                 ignoreElements: function(el) {
                     if (!el || !el.id) {
                         return !!(el && el.classList && (el.classList.contains('bug-modal-overlay') || el.classList.contains('bug-fab')));

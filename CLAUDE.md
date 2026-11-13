@@ -4477,3 +4477,14 @@ Decisión del laboratorio (3-nov-2026): en todas las familias, los rines van jun
 - **Dos reglas de igual peso: gana la de más abajo en el archivo.** `.ls-foot` perdía contra
   `.oc-foot`; se escribe `.oc-foot.ls-foot`.
 
+## 3.38.1 — Radios de contenedor y colores que html2canvas no lee
+
+- **`--radius-full` es solo para lo que mide UNA línea** (chip, insignia, campo, botón corto).
+  Un contenedor que crece con su contenido usa `--radius-xl` / `--radius-2xl`: con 9999 px un
+  bloque de varias líneas se recorta en óvalo (con `overflow: hidden`, se come el contenido). La
+  3.26.0 cambió 35 radios de 8 px por `--radius-full` en un reemplazo masivo y deformó el Alta.
+  **Nunca reemplazar un token de radio en bloque**: se decide regla por regla.
+- **El 🐞 dibuja con html2canvas 1.4.1, que no lee `color(…)`, `color-mix(…)`, `oklch`, `lab`…**
+  y ante uno solo visible falla la captura ENTERA. `bugCloneSafeColors(doc)` (onclone) los traduce
+  a rgba en la copia; `bugColorUnsupported` es PURA. Se puede usar `color-mix` en CSS: el 🐞 lo
+  cubre. Una propiedad nueva que pueda llevar color va a `BUG_COLOR_PROPS`.

@@ -32,6 +32,16 @@ const MAP = { tag: 100, mods: [[102, 'js/app.js', 200], [203, 'js/cop15.js', 400
     ok('sin mapa (desarrollo) → null', ctx.bugMapLine(150, null) === null);
 }
 
+console.log('\n== Colores que html2canvas no lee (3.38.1) ==');
+{
+    const u = ctx.bugColorUnsupported;
+    ok('color-mix ya resuelto por el navegador (color(srgb …)) se detecta', u('color(srgb 0.76 0.07 0.19 / 0.12)'));
+    ok('color-mix, oklch y lab se detectan', u('color-mix(in srgb, red 12%, transparent)') && u('oklch(0.6 0.2 30)') && u('lab(50 20 30)'));
+    ok('dentro de una sombra también', u('rgba(0, 0, 0, 0.1) 0px 1px 2px 0px, color(srgb 1 0 0) 0px 0px 0px 1px'));
+    ok('rgb/rgba/hex/transparent/none NO', !u('rgb(255, 255, 255)') && !u('rgba(0, 0, 0, 0)') && !u('#fff') && !u('transparent') && !u('none') && !u(''));
+    ok('sin valor no truena', u(undefined) === false && u(null) === false);
+}
+
 console.log('\n== Ubicar un (url, línea) ==');
 {
     const dev = ctx.bugLocate('http://localhost:5173/js/testplan.js?v=3', 88, null);
